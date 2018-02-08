@@ -2,11 +2,9 @@ name: mkgu_packaging
 channels:
   - defaults
 dependencies:
-  - ipyvolume
   - bokeh
   - boto3
   - curl
-  - dataset
   - hdf5
   - jupyter
   - matplotlib
@@ -28,4 +26,6 @@ dependencies:
   - xarray
   - xlrd
   - pip:
-    - mkgu==0.1.0
+    - dataset
+    - ipyvolume
+    - mkgu
