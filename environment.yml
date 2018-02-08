@@ -28,4 +28,3 @@ dependencies:
   - pip:
     - dataset
     - ipyvolume
-    - mkgu
