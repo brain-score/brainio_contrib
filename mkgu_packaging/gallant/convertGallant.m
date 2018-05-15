@@ -17,7 +17,12 @@ for i = 1:length(files)
     for summary = summaries'
         %% read and align stimuli and responses
         stimuliFile = [subDir, '/', summary.stimfile];
-        stimuli = loadimfile(stimuliFile);
+        try
+            stimuli = loadimfile(stimuliFile);
+        catch ME
+            fprintf('ERROR: could not load stimuli file %s\n', stimuliFile);
+            continue
+        end
         stimuli = uint8(stimuli);
         responseFile = [subDir, '/', summary.respfile];
         response = respload(responseFile);
@@ -65,19 +70,23 @@ end
 function stimuliPaths = writeStimuli(stimuli, stimuliFile, dryRun)
     [stimuliFile, basename, basenameExt] = fileparts(stimuliFile); 
     [stimuliDir, baseDir, ~] = fileparts(stimuliFile);
-    stimuliDir = [stimuliDir, '/stimuli/', baseDir, '/', basename, basenameExt];
+    stimuliDir = [stimuliDir, '/stimuli/'];
     if isfolder(stimuliDir)
-        dryRun = true;
+        fprintf('directory %s exists already\n', stimuliDir);
     else
         mkdir(stimuliDir);
     end
     stimuliPaths = cell(size(stimuli, 3), 1);
-    for stimulus = 1:size(stimuli, 3)
-        image = stimuli(:, :, stimulus);
-        stimuliPaths{stimulus} = [stimuliDir, '/', num2str(stimulus), '.jpg'];
+    for stimulusNum = 1:size(stimuli, 3)
+        image = stimuli(:, :, stimulusNum);
+        stimuliPaths{stimulusNum} = [stimuliDir, '/', hashImage(image), '.jpg'];
         if ~dryRun
-            assert(~isfile(stimuliPaths{stimulus}));
-            imwrite(image, stimuliPaths{stimulus});
+            % assert(~isfile(stimuliPaths{stimulusNum})); % some files are duplicates
+            imwrite(image, stimuliPaths{stimulusNum});
         end
     end
+end
+
+function hashed = hashImage(image)
+    hashed = DataHash(image);
 end
