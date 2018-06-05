@@ -29,6 +29,7 @@ def align_debug():
         # for column in df_massage.columns:
         #     gd_array.coords[column] = ("presentation", df_massage[column])
         # gd_array.reset_index(["neuroid", "presentation"], drop=True, inplace=True)
+        gd_array.reset_index("category_name", drop=True, inplace=True)
         mkgu.assemblies.gather_indexes(gd_array)
         gd_arrays.append(gd_array)
         nonzeros_raw.append(np.nonzero(~np.isnan(gd_array)))
@@ -38,6 +39,7 @@ def align_debug():
     nonzeros_aligned = [np.nonzero(~np.isnan(da)) for da in align_test]
     print("nonzeros_aligned: ")
     print(nonzeros_aligned)
+    assert nonzeros_raw[0].shape == nonzeros_aligned[0].shape
 
 
 def massage_file_name(file_name):
