@@ -57,9 +57,35 @@ def massage_file_name(file_name):
 
 def align_bug_reproduce():
     dims = ("x", "y")
+    shape = (10, 5)
+    das = []
+    for j in (0, 1):
+        data = np.full(shape, np.nan, dtype="float64")
+        for i in range(shape[0]):
+            data[i, i % shape[1]] = float(i)
+        coords_d = {
+            "ints": ("x", range(j*shape[0], (j+1)*shape[0])),
+            "nans": ("x", np.array([np.nan] * shape[0], dtype="float64")),
+            "lower": ("y", list(string.ascii_lowercase[:shape[1]]))
+        }
+        da = xr.DataArray(data=data, dims=dims, coords=coords_d)
+        da.set_index(append=True, inplace=True, x=["ints", "nans"], y=["lower"])
+        das.append(da)
+    nonzeros_raw = [np.nonzero(~np.isnan(da)) for da in das]
+    print("nonzeros_raw: ")
+    print(nonzeros_raw)
+    aligned = xr.align(*das, join="outer")
+    nonzeros_aligned = [np.nonzero(~np.isnan(da)) for da in aligned]
+    print("nonzeros_aligned: ")
+    print(nonzeros_aligned)
+    assert nonzeros_raw[0].shape == nonzeros_aligned[0].shape
+
+
+def align_bug_reproduce_old():
+    dims = ("x", "y")
     coords_d = {"x": ("tens", "negative", "nans"), "y": ("lower", "upper")}
 
-    shape6 = (150000, 10)
+    shape6 = (15, 10)
     data6 = np.full(shape6, np.nan, dtype="float64")
     for i in range(shape6[0]):
         data6[i, i % shape6[1]] = float(i)
@@ -72,10 +98,10 @@ def align_bug_reproduce():
     }
     da6 = xr.DataArray(data=data6, dims=dims, coords=coords6)
     da6_file = "xarray_align_debug_da6.nc"
-    da6.to_netcdf(da6_file)
-    da6_reloaded = xr.open_dataarray(da6_file)
+    # da6.to_netcdf(da6_file)
+    # da6_reloaded = xr.open_dataarray(da6_file)
 
-    shape7 = (300000, 10)
+    shape7 = (30, 10)
     data7 = np.full(shape7, np.nan, dtype="float64")
     for i in range(shape7[0]):
         data7[i, i % shape7[1]] = float(-i)
@@ -88,12 +114,14 @@ def align_bug_reproduce():
     }
     da7 = xr.DataArray(data=data7, dims=dims, coords=coords7)
     da7_file = "xarray_align_debug_da7.nc"
-    da7.to_netcdf(da7_file)
-    da7_reloaded = xr.open_dataarray(da7_file)
+    # da7.to_netcdf(da7_file)
+    # da7_reloaded = xr.open_dataarray(da7_file)
 
-    for da in (da6_reloaded, da7_reloaded):
+    # for da in (da6_reloaded, da7_reloaded):
+    for da in (da6, da7):
         da.set_index(append=True, inplace=True, **coords_d)
-    aligned = xr.align(da6_reloaded, da7_reloaded, join="outer")
+    # aligned = xr.align(da6_reloaded, da7_reloaded, join="outer")
+    aligned = xr.align(da6, da7, join="outer")
     print(aligned)
     print([np.nonzero(~np.isnan(da)) for da in aligned])
 
