@@ -57,7 +57,7 @@ def massage_file_name(file_name):
 
 def align_bug_reproduce():
     dims = ("x", "y")
-    coords_d = {"x": ("tens", "negative"), "y": ("lower", "upper")}
+    coords_d = {"x": ("tens", "negative", "nans"), "y": ("lower", "upper")}
 
     shape6 = (150000, 10)
     data6 = np.full(shape6, np.nan, dtype="float64")
@@ -67,7 +67,8 @@ def align_bug_reproduce():
         "lower": ("y", list(string.ascii_lowercase[:shape6[1]])),
         "upper": ("y", [c + string.ascii_uppercase for c in list(string.ascii_uppercase[:shape6[1]])]),
         "tens": ("x", [x * 10 for x in range(shape6[0])]),
-        "negative": ("x", [str(-x+x%2) for x in range(shape6[0])])
+        "negative": ("x", [str(-x+x%2) for x in range(shape6[0])]),
+        "nans": ("x", np.array([np.nan] * shape6[0], dtype="float64"))
     }
     da6 = xr.DataArray(data=data6, dims=dims, coords=coords6)
     da6_file = "xarray_align_debug_da6.nc"
@@ -82,7 +83,8 @@ def align_bug_reproduce():
         "lower": ("y", list(string.ascii_lowercase[shape7[1]:2 * shape7[1]])),
         "upper": ("y", [c + string.ascii_uppercase for c in list(string.ascii_uppercase[shape7[1]:2 * shape7[1]])]),
         "tens": ("x", [x * 10 for x in range(shape7[0], 2 * shape7[0])]),
-        "negative": ("x", [str(-x+x%2) for x in range(shape7[0], 2 * shape7[0])])
+        "negative": ("x", [str(-x+x%2) for x in range(shape7[0], 2 * shape7[0])]),
+        "nans": ("x", np.array([np.nan] * shape7[0], dtype="float64"))
     }
     da7 = xr.DataArray(data=data7, dims=dims, coords=coords7)
     da7_file = "xarray_align_debug_da7.nc"
@@ -91,15 +93,15 @@ def align_bug_reproduce():
 
     for da in (da6_reloaded, da7_reloaded):
         da.set_index(append=True, inplace=True, **coords_d)
-    aligned = xr.align(da6_reloaded.T, da7_reloaded.T, join="outer")
+    aligned = xr.align(da6_reloaded, da7_reloaded, join="outer")
     print(aligned)
     print([np.nonzero(~np.isnan(da)) for da in aligned])
 
 
 def main():
     # print(xr.show_versions())
-    align_debug()
-    # align_bug_reproduce()
+    # align_debug()
+    align_bug_reproduce()
 
 if __name__ == '__main__':
     main()
