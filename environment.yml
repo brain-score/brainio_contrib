@@ -1,23 +1,23 @@
-name: mkgu_packaging
+name: brain-score_packaging
 channels:
   - defaults
 dependencies:
+  - python
   - bokeh
   - boto3
   - curl
   - hdf5
+  - h5py
   - jupyter
   - matplotlib
   - netcdf4
   - numpy
   - pandas
   - pillow
-  - pip
   - plotly
   - pyqt
   - pytables
   - pytest
-  - python
   - qt
   - requests
   - scipy
