@@ -118,10 +118,9 @@ def main():
     stimuli = load_stimuli(stimuli_directory)
     assembly = load_responses(response_file, stimuli_directory)
 
-    print(assembly)
     nonzero = np.count_nonzero(assembly)
-    print(nonzero)
     assert nonzero > 0
+    return (assembly, stimuli)
 
 
 if __name__ == '__main__':
