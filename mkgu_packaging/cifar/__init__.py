@@ -116,7 +116,7 @@ def untar(filepath, out_dir='.'):
 def main():
     stimuli_dir = os.path.dirname(__file__)
     download_data(out_dir=stimuli_dir)
-    stimuli = collect_stimuli(stimuli_dir, write_image=False)
+    stimuli = collect_stimuli(stimuli_dir, write_image=True)
 
     stimulus_set_name = "cifar10"
     bucket_name = "brain-score-cifar"
