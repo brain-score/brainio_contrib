@@ -8,11 +8,9 @@ import pandas as pd
 import xarray as xr
 from brainscore.assemblies import NeuronRecordingAssembly
 from brainscore.knownfile import KnownFile as kf
-from result_caching import store
 from tqdm import tqdm
 
 
-@store(identifier_ignore=['stimuli_directory'])
 def collect_stimuli(stimuli_directory):
     meta = os.path.join(stimuli_directory, 'cocogray_labels.mat')
     meta = h5py.File(meta, 'r')
@@ -41,6 +39,7 @@ def collect_stimuli(stimuli_directory):
 def load_responses(response_file, stimuli):
     responses = h5py.File(response_file, 'r')
     assemblies = []
+    neuroid_id_offset = 0
     for monkey in responses.keys():
         spike_rates = responses[monkey]['rates']
         assembly = xr.DataArray(spike_rates.value,
@@ -49,20 +48,22 @@ def load_responses(response_file, stimuli):
                                     'image_id': ('image_id', [
                                         stimuli['image_id'][stimuli['image_number'] == num].values[0]
                                         for num in range(spike_rates.shape[0])]),
-                                    'neuroid_id': ('neuroid', list(range(spike_rates.shape[1]))),
+                                    'neuroid_id': ('neuroid', list(
+                                        range(neuroid_id_offset, neuroid_id_offset + spike_rates.shape[1]))),
                                     'region': ('neuroid', ['IT'] * spike_rates.shape[1]),
                                     'monkey': ('neuroid', [monkey] * spike_rates.shape[1]),
                                     'repetition': list(range(spike_rates.shape[2])),
                                 },
                                 dims=['image_id', 'neuroid', 'repetition'])
         assemblies.append(assembly)
+        neuroid_id_offset += spike_rates.shape[1]
     assembly = xr.concat(assemblies, 'neuroid')
     assembly = assembly.stack(presentation=['image_id', 'repetition'])
     assembly = NeuronRecordingAssembly(assembly)
     assert len(assembly['presentation']) == 1600 * 45
     assert len(np.unique(assembly['image_id'])) == 1600
     assert len(assembly.sel(monkey='nano')['neuroid']) == len(assembly.sel(monkey='magneto')['neuroid']) == 288
-    assert len(assembly['neuroid']) == 288 * 2
+    assert len(assembly['neuroid']) == len(np.unique(assembly['neuroid_id'])) == 288 * 2
 
     return assembly
 
