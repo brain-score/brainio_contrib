@@ -9,7 +9,7 @@ from brainio_base.stimuli import StimulusSet
 
 
 def get_objectome():
-    data_path = os.path.join(os.path.dirname(__file__), 'Rajalingham2018Objectome', 'data')
+    data_path = '/braintree/home/msch/share/objectome/data'
     objectome = pd.read_pickle(os.path.join(data_path, 'objectome24s100_humanpool.pkl'))
     objectome['correct'] = objectome['choice'] == objectome['sample_obj']
     objectome['truth'] = objectome['sample_obj']
@@ -32,7 +32,7 @@ def to_xarray(objectome):
 
 
 def load_stimuli():
-    stim_path = os.path.join(os.path.dirname(__file__), 'Rajalingham2018Objectome', 'stim')
+    stim_path = '/braintree/home/msch/share/objectome/stim'
     stimuli_paths = list(glob(os.path.join(stim_path, '*.png')))
     stimuli = StimulusSet({'filepath': stimuli_paths,
                            'image_id': [os.path.splitext(os.path.basename(filepath))[0] for filepath in stimuli_paths]})
