@@ -31,11 +31,18 @@ def to_xarray(objectome):
     return objectome
 
 
-def load_stimuli():
+def load_stimuli(meta_assembly):
     stim_path = '/braintree/home/msch/share/objectome/stim'
     stimuli_paths = list(glob(os.path.join(stim_path, '*.png')))
     stimuli = StimulusSet({'filepath': stimuli_paths,
                            'image_id': [os.path.splitext(os.path.basename(filepath))[0] for filepath in stimuli_paths]})
+
+    assert all(meta_assembly['sample_obj'].values == meta_assembly['truth'].values)
+    image_meta = {image_id: coord_value for image_id, coord_value in
+                  zip(meta_assembly['image_id'].values, meta_assembly['sample_obj'].values)}
+    meta_values = [image_meta[image_id] for image_id in stimuli['image_id'].values]
+    stimuli['sample_obj'] = meta_values
+    stimuli['label'] = stimuli['sample_obj']
     return stimuli
 
 
@@ -49,8 +56,8 @@ def load_responses():
 
 
 def main():
-    all_stimuli = load_stimuli()
     [all_assembly, public_assembly, private_assembly] = load_responses()
+    all_stimuli = load_stimuli(all_assembly)
     public_stimuli = all_stimuli[all_stimuli['image_id'].isin(public_assembly['image_id'].values)]
     private_stimuli = all_stimuli[all_stimuli['image_id'].isin(private_assembly['image_id'].values)]
     all_stimuli.name, public_stimuli.name, private_stimuli.name = \
