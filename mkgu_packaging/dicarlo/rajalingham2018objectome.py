@@ -32,7 +32,6 @@ def to_xarray(objectome):
 
 
 def load_stimuli():
-    # cp /braintree/home/msch/brain-score_packaging/objectome/objectome-224/* ./Rajalingham2018Objectome/stim/
     stim_path = os.path.join(os.path.dirname(__file__), 'Rajalingham2018Objectome', 'stim')
     stimuli_paths = list(glob(os.path.join(stim_path, '*.png')))
     stimuli = StimulusSet({'filepath': stimuli_paths,
@@ -41,7 +40,6 @@ def load_stimuli():
 
 
 def load_responses():
-    # cp /braintree/home/msch/brain-score_packaging/objectome/data/* ./Rajalingham2018Objectome/data/
     objectome = get_objectome()
     objectome.name = 'dicarlo.Rajalingham2018'
     fitting_objectome, testing_objectome = objectome.sel(enough_human_data=False), objectome.sel(enough_human_data=True)
@@ -55,7 +53,8 @@ def main():
     [all_assembly, public_assembly, private_assembly] = load_responses()
     public_stimuli = all_stimuli[all_stimuli['image_id'].isin(public_assembly['image_id'].values)]
     private_stimuli = all_stimuli[all_stimuli['image_id'].isin(private_assembly['image_id'].values)]
-    public_stimuli.name, private_stimuli.name = public_assembly.name, private_assembly.name
+    all_stimuli.name, public_stimuli.name, private_stimuli.name = \
+        all_assembly.name, public_assembly.name, private_assembly.name
 
     assert len(public_assembly) + len(private_assembly) == len(all_assembly) == 927296
     assert len(private_assembly) == 341785
