@@ -1,20 +1,27 @@
 import os
+import zipfile
 from glob import glob
+from pathlib import Path
 
 import pandas as pd
 import xarray as xr
 
+import mkgu_packaging
 from brainio_base.assemblies import BehavioralAssembly
 from brainio_base.stimuli import StimulusSet
+from brainio_collection.lookup import pwdb
+from brainio_collection.knownfile import KnownFile as kf
+from brainio_collection.assemblies import AssemblyModel, AssemblyStoreMap, AssemblyStoreModel
+from brainio_collection.stimuli import ImageModel, AttributeModel, ImageMetaModel, StimulusSetModel, ImageStoreModel, \
+    StimulusSetImageMap, ImageStoreMap
 
 
-def get_objectome():
-    data_path = '/braintree/home/msch/share/objectome/data'
-    objectome = pd.read_pickle(os.path.join(data_path, 'objectome24s100_humanpool.pkl'))
+def get_objectome(source_data_path):
+    objectome = pd.read_pickle(os.path.join(source_data_path, 'objectome24s100_humanpool.pkl'))
     objectome['correct'] = objectome['choice'] == objectome['sample_obj']
     objectome['truth'] = objectome['sample_obj']
 
-    subsample = pd.read_pickle(os.path.join(data_path, 'objectome24s100_imgsubsampled240_pandas.pkl'))
+    subsample = pd.read_pickle(os.path.join(source_data_path, 'objectome24s100_imgsubsampled240_pandas.pkl'))
     objectome['enough_human_data'] = objectome['id'].isin(subsample.values[:, 0])
     objectome = to_xarray(objectome)
     return objectome
@@ -31,23 +38,23 @@ def to_xarray(objectome):
     return objectome
 
 
-def load_stimuli(meta_assembly):
-    stim_path = '/braintree/home/msch/share/objectome/stim'
-    stimuli_paths = list(glob(os.path.join(stim_path, '*.png')))
-    stimuli = StimulusSet({'filepath': stimuli_paths,
-                           'image_id': [os.path.splitext(os.path.basename(filepath))[0] for filepath in stimuli_paths]})
+def load_stimuli(meta_assembly, source_stim_path):
+    stimuli_paths = list(glob(os.path.join(source_stim_path, '*.png'))).sort()
+    stimuli = StimulusSet({'image_current_local_file_path': stimuli_paths,
+                           'image_id': [os.path.splitext(os.path.basename(filepath))[0] for filepath in stimuli_paths],
+                           'image_path_within_store': [os.path.basename(filepath) for filepath in stimuli_paths]})
 
     assert all(meta_assembly['sample_obj'].values == meta_assembly['truth'].values)
     image_meta = {image_id: coord_value for image_id, coord_value in
                   zip(meta_assembly['image_id'].values, meta_assembly['sample_obj'].values)}
     meta_values = [image_meta[image_id] for image_id in stimuli['image_id'].values]
-    stimuli['sample_obj'] = meta_values
-    stimuli['label'] = stimuli['sample_obj']
+    stimuli['image_sample_obj'] = meta_values
+    stimuli['image_label'] = stimuli['image_sample_obj']
     return stimuli
 
 
-def load_responses():
-    objectome = get_objectome()
+def load_responses(source_data_path):
+    objectome = get_objectome(source_data_path)
     objectome.name = 'dicarlo.Rajalingham2018'
     fitting_objectome, testing_objectome = objectome.sel(enough_human_data=False), objectome.sel(enough_human_data=True)
     fitting_objectome.name += '.partial_trials'
@@ -55,9 +62,81 @@ def load_responses():
     return objectome, fitting_objectome, testing_objectome
 
 
+def create_image_zip(stimuli, target_zip_path):
+    os.makedirs(os.path.dirname(target_zip_path), exist_ok=True)
+    with zipfile.ZipFile(target_zip_path, 'w') as target_zip:
+        for image in stimuli.itertuples():
+            target_zip.write(image.image_current_local_file_path, arcname=image.image_path_within_store)
+    zip_kf = kf(target_zip_path)
+    return zip_kf.sha1
+
+
+def write_netcdf(assembly, target_netcdf_file):
+    assembly.reset_index(assembly.indexes.keys(), inplace=True)
+    result = assembly.drop(["image_sample_obj", "image_label"])
+    result.reset_index(result.indexes.keys(), inplace=True)
+    result.to_netcdf(target_netcdf_file)
+
+
+def add_stimulus_set_metadata_and_lookup_to_db(stimuli, stimulus_set_name, bucket_name, zip_file_name,
+                                               image_store_unique_name, zip_sha1):
+    pwdb.connect(reuse_if_open=True)
+    stim_set_model, created = StimulusSetModel.get_or_create(name=stimulus_set_name)
+    image_store, created = ImageStoreModel.get_or_create(location_type="S3", store_type="zip",
+                                                         location=f"https://{bucket_name}.s3.amazonaws.com/{zip_file_name}",
+                                                         unique_name=image_store_unique_name,
+                                                         sha1=zip_sha1)
+    add_image_metadata_to_db(stimuli, stim_set_model, image_store)
+    return stim_set_model
+
+
+def add_image_metadata_to_db(stimuli, stim_set_model, image_store):
+    pwdb.connect(reuse_if_open=True)
+    eav_image_sample_obj, created = AttributeModel.get_or_create(name="image_sample_obj", type="str")
+    eav_image_label, created = AttributeModel.get_or_create(name="image_label", type="str")
+
+    for image in stimuli.itertuples():
+        pw_image, created = ImageModel.get_or_create(image_id=image.image_id)
+        pw_stimulus_set_image_map, created = StimulusSetImageMap.get_or_create(stimulus_set=stim_set_model, image=pw_image)
+        pw_image_image_store_map, created = ImageStoreMap.get_or_create(image=pw_image, image_store=image_store,
+                                                                        path=image.image_store_path)
+        ImageMetaModel.get_or_create(image=pw_image, attribute=eav_image_sample_obj, value=str(image.image_sample_obj))
+        ImageMetaModel.get_or_create(image=pw_image, attribute=eav_image_label, value=str(image.image_label))
+
+
+def add_assembly_lookup(assembly_name, stim_set_model, bucket_name, target_netcdf_file, assembly_store_unique_name):
+    kf_netcdf = kf(target_netcdf_file)
+    assy, created = AssemblyModel.get_or_create(name=assembly_name, assembly_class="BehavioralAssembly",
+                                                stimulus_set=stim_set_model)
+    store, created = AssemblyStoreModel.get_or_create(assembly_type="netCDF",
+                                                      location_type="S3",
+                                                      location=f"https://{bucket_name}.s3.amazonaws.com/{assembly_name}.nc",
+                                                      unique_name=assembly_store_unique_name,
+                                                      sha1=kf_netcdf.sha1)
+    assy_store_map, created = AssemblyStoreMap.get_or_create(assembly_model=assy, assembly_store_model=store, role=assembly_name)
+
+
 def main():
-    [all_assembly, public_assembly, private_assembly] = load_responses()
-    all_stimuli = load_stimuli(all_assembly)
+    stimulus_set_unique_name = "dicarlo.objectome"
+    image_store_unique_name = "image_dicarlo_objectome"
+    assembly_unique_name = "dicarlo.Rajalingham2018"
+    assembly_store_unique_name = "assy_dicarlo_Rajalingham2018"
+
+    pkg_path = Path(mkgu_packaging).parent
+    source_path = Path("/braintree/home/msch/share/objectome")
+    source_data_path = source_path / 'data'
+    source_stim_path = source_path / 'stim'
+    target_path = pkg_path.parent / "objectome" / "out"
+    target_zip_basename = image_store_unique_name + ".zip"
+    target_zip_path = target_path / target_zip_basename
+    target_netcdf_basename = assembly_store_unique_name + ".nc"
+    target_netcdf_path = target_path / target_netcdf_basename
+    target_bucket_name = "brainio-dicarlo"
+    target_zip_s3_key = target_zip_basename
+    target_netcdf_s3_key = target_netcdf_basename
+
+    [all_assembly, public_assembly, private_assembly] = load_responses(source_data_path)
+    all_stimuli = load_stimuli(all_assembly, source_stim_path)
     public_stimuli = all_stimuli[all_stimuli['image_id'].isin(public_assembly['image_id'].values)]
     private_stimuli = all_stimuli[all_stimuli['image_id'].isin(private_assembly['image_id'].values)]
     all_stimuli.name, public_stimuli.name, private_stimuli.name = \
@@ -73,6 +152,9 @@ def main():
     assert len(set(private_assembly['choice'].values)) == len(set(public_assembly['choice'].values)) == 24
 
     print([assembly.name for assembly in [all_assembly, public_assembly, private_assembly]])
+
+
+
     return [(all_assembly, all_stimuli), (public_assembly, public_stimuli), (private_assembly, private_stimuli)]
 
 
