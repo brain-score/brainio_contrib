@@ -55,10 +55,7 @@ def load_stimuli(meta_assembly, source_stim_path):
 
 def load_responses(source_data_path):
     objectome = get_objectome(source_data_path)
-    objectome.name = 'dicarlo.Rajalingham2018'
     fitting_objectome, testing_objectome = objectome.sel(enough_human_data=False), objectome.sel(enough_human_data=True)
-    fitting_objectome.name += '.partial_trials'
-    testing_objectome.name += '.full_trials'
     return objectome, fitting_objectome, testing_objectome
 
 
@@ -117,30 +114,45 @@ def add_assembly_lookup(assembly_name, stim_set_model, bucket_name, target_netcd
 
 
 def main():
-    stimulus_set_unique_name = "dicarlo.objectome"
-    image_store_unique_name = "image_dicarlo_objectome"
-    assembly_unique_name = "dicarlo.Rajalingham2018"
-    assembly_store_unique_name = "assy_dicarlo_Rajalingham2018"
-
     pkg_path = Path(mkgu_packaging).parent
     source_path = Path("/braintree/home/msch/share/objectome")
     source_data_path = source_path / 'data'
     source_stim_path = source_path / 'stim'
     target_path = pkg_path.parent / "objectome" / "out"
-    target_zip_basename = image_store_unique_name + ".zip"
-    target_zip_path = target_path / target_zip_basename
-    target_netcdf_basename = assembly_store_unique_name + ".nc"
-    target_netcdf_path = target_path / target_netcdf_basename
     target_bucket_name = "brainio-dicarlo"
-    target_zip_s3_key = target_zip_basename
-    target_netcdf_s3_key = target_netcdf_basename
+    assembly_name = "dicarlo.Rajalingham2018"
+
+    public_stimulus_set_unique_name = "dicarlo.objectome.public"
+    public_image_store_unique_name = "image_dicarlo_objectome_public"
+    public_assembly_unique_name = "dicarlo.Rajalingham2018.public"
+    public_assembly_store_unique_name = "assy_dicarlo_Rajalingham2018_public"
+    public_target_zip_basename = public_image_store_unique_name + ".zip"
+    public_target_zip_path = target_path / public_target_zip_basename
+    public_target_netcdf_basename = public_assembly_store_unique_name + ".nc"
+    public_target_netcdf_path = target_path / public_target_netcdf_basename
+    public_target_zip_s3_key = public_target_zip_basename
+    public_target_netcdf_s3_key = public_target_netcdf_basename
+
+    private_stimulus_set_unique_name = "dicarlo.objectome.private"
+    private_image_store_unique_name = "image_dicarlo_objectome_private"
+    private_assembly_unique_name = "dicarlo.Rajalingham2018.private"
+    private_assembly_store_unique_name = "assy_dicarlo_Rajalingham2018_private"
+    private_target_zip_basename = private_image_store_unique_name + ".zip"
+    private_target_zip_path = target_path / private_target_zip_basename
+    private_target_netcdf_basename = private_assembly_store_unique_name + ".nc"
+    private_target_netcdf_path = target_path / private_target_netcdf_basename
+    private_target_zip_s3_key = private_target_zip_basename
+    private_target_netcdf_s3_key = private_target_netcdf_basename
 
     [all_assembly, public_assembly, private_assembly] = load_responses(source_data_path)
+    all_assembly.name = assembly_name
+    public_assembly.name = public_assembly_unique_name
+    private_assembly.name = private_assembly_unique_name
     all_stimuli = load_stimuli(all_assembly, source_stim_path)
     public_stimuli = all_stimuli[all_stimuli['image_id'].isin(public_assembly['image_id'].values)]
     private_stimuli = all_stimuli[all_stimuli['image_id'].isin(private_assembly['image_id'].values)]
-    all_stimuli.name, public_stimuli.name, private_stimuli.name = \
-        all_assembly.name, public_assembly.name, private_assembly.name
+    public_stimuli.name = public_stimulus_set_unique_name
+    private_stimuli.name = private_stimulus_set_unique_name
 
     assert len(public_assembly) + len(private_assembly) == len(all_assembly) == 927296
     assert len(private_assembly) == 341785
@@ -153,9 +165,17 @@ def main():
 
     print([assembly.name for assembly in [all_assembly, public_assembly, private_assembly]])
 
+    public_zip_sha1 = create_image_zip(public_stimuli, public_target_zip_path)
+    public_stimulus_set_model = add_stimulus_set_metadata_and_lookup_to_db(public_stimuli, public_stimulus_set_unique_name, target_bucket_name, public_target_zip_basename, public_image_store_unique_name, public_zip_sha1)
+    write_netcdf(public_assembly, public_target_netcdf_path)
+    add_assembly_lookup(public_assembly_unique_name,public_stimulus_set_model,target_bucket_name,public_target_netcdf_path, public_assembly_store_unique_name)
 
+    private_zip_sha1 = create_image_zip(private_stimuli, private_target_zip_path)
+    private_stimulus_set_model = add_stimulus_set_metadata_and_lookup_to_db(private_stimuli, private_stimulus_set_unique_name, target_bucket_name, private_target_zip_basename, private_image_store_unique_name, private_zip_sha1)
+    write_netcdf(private_assembly, private_target_netcdf_path)
+    add_assembly_lookup(private_assembly_unique_name,private_stimulus_set_model,target_bucket_name,private_target_netcdf_path, private_assembly_store_unique_name)
 
-    return [(all_assembly, all_stimuli), (public_assembly, public_stimuli), (private_assembly, private_stimuli)]
+    return [(public_assembly, public_stimuli), (private_assembly, private_stimuli)]
 
 
 if __name__ == '__main__':
