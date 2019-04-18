@@ -39,7 +39,8 @@ def to_xarray(objectome):
 
 
 def load_stimuli(meta_assembly, source_stim_path):
-    stimuli_paths = list(glob(os.path.join(source_stim_path, '*.png'))).sort()
+    stimuli_paths = list(glob(os.path.join(source_stim_path, '*.png')))
+    stimuli_paths.sort()
     stimuli = StimulusSet({'image_current_local_file_path': stimuli_paths,
                            'image_id': [os.path.splitext(os.path.basename(filepath))[0] for filepath in stimuli_paths],
                            'image_path_within_store': [os.path.basename(filepath) for filepath in stimuli_paths]})
@@ -70,9 +71,7 @@ def create_image_zip(stimuli, target_zip_path):
 
 def write_netcdf(assembly, target_netcdf_file):
     assembly.reset_index(assembly.indexes.keys(), inplace=True)
-    result = assembly.drop(["image_sample_obj", "image_label"])
-    result.reset_index(result.indexes.keys(), inplace=True)
-    result.to_netcdf(target_netcdf_file)
+    assembly.to_netcdf(target_netcdf_file)
 
 
 def add_stimulus_set_metadata_and_lookup_to_db(stimuli, stimulus_set_name, bucket_name, zip_file_name,
@@ -96,7 +95,7 @@ def add_image_metadata_to_db(stimuli, stim_set_model, image_store):
         pw_image, created = ImageModel.get_or_create(image_id=image.image_id)
         pw_stimulus_set_image_map, created = StimulusSetImageMap.get_or_create(stimulus_set=stim_set_model, image=pw_image)
         pw_image_image_store_map, created = ImageStoreMap.get_or_create(image=pw_image, image_store=image_store,
-                                                                        path=image.image_store_path)
+                                                                        path=image.image_path_within_store)
         ImageMetaModel.get_or_create(image=pw_image, attribute=eav_image_sample_obj, value=str(image.image_sample_obj))
         ImageMetaModel.get_or_create(image=pw_image, attribute=eav_image_label, value=str(image.image_label))
 
@@ -114,7 +113,7 @@ def add_assembly_lookup(assembly_name, stim_set_model, bucket_name, target_netcd
 
 
 def main():
-    pkg_path = Path(mkgu_packaging).parent
+    pkg_path = Path(mkgu_packaging.__file__).parent
     source_path = Path("/braintree/home/msch/share/objectome")
     source_data_path = source_path / 'data'
     source_stim_path = source_path / 'stim'
