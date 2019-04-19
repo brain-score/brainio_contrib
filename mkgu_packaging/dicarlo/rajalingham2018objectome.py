@@ -3,6 +3,7 @@ import zipfile
 from glob import glob
 from pathlib import Path
 
+import boto3
 import pandas as pd
 import xarray as xr
 
@@ -18,7 +19,7 @@ from brainio_collection.stimuli import ImageModel, AttributeModel, ImageMetaMode
 
 def get_objectome(source_data_path):
     objectome = pd.read_pickle(os.path.join(source_data_path, 'objectome24s100_humanpool.pkl'))
-    objectome['correct'] = objectome['choice'] == objectome['sample_obj']
+    # objectome['correct'] = objectome['choice'] == objectome['sample_obj']
     objectome['truth'] = objectome['sample_obj']
 
     subsample = pd.read_pickle(os.path.join(source_data_path, 'objectome24s100_imgsubsampled240_pandas.pkl'))
@@ -106,10 +107,15 @@ def add_assembly_lookup(assembly_name, stim_set_model, bucket_name, target_netcd
                                                 stimulus_set=stim_set_model)
     store, created = AssemblyStoreModel.get_or_create(assembly_type="netCDF",
                                                       location_type="S3",
-                                                      location=f"https://{bucket_name}.s3.amazonaws.com/{assembly_name}.nc",
+                                                      location=f"https://{bucket_name}.s3.amazonaws.com/{assembly_store_unique_name }.nc",
                                                       unique_name=assembly_store_unique_name,
                                                       sha1=kf_netcdf.sha1)
     assy_store_map, created = AssemblyStoreMap.get_or_create(assembly_model=assy, assembly_store_model=store, role=assembly_name)
+
+
+def upload_to_s3(source_file_path, bucket_name, target_s3_key):
+    client = boto3.client('s3')
+    client.upload_file(source_file_path, bucket_name, target_s3_key)
 
 
 def main():
@@ -173,6 +179,12 @@ def main():
     private_stimulus_set_model = add_stimulus_set_metadata_and_lookup_to_db(private_stimuli, private_stimulus_set_unique_name, target_bucket_name, private_target_zip_basename, private_image_store_unique_name, private_zip_sha1)
     write_netcdf(private_assembly, private_target_netcdf_path)
     add_assembly_lookup(private_assembly_unique_name,private_stimulus_set_model,target_bucket_name,private_target_netcdf_path, private_assembly_store_unique_name)
+
+    print("uploading to S3")
+    upload_to_s3(str(public_target_zip_path), target_bucket_name, public_target_zip_s3_key)
+    upload_to_s3(str(public_target_netcdf_path), target_bucket_name, public_target_netcdf_s3_key)
+    upload_to_s3(str(private_target_zip_path), target_bucket_name, private_target_zip_s3_key)
+    upload_to_s3(str(private_target_netcdf_path), target_bucket_name, private_target_netcdf_s3_key)
 
     return [(public_assembly, public_stimuli), (private_assembly, private_stimuli)]
 
