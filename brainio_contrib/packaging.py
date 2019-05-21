@@ -20,7 +20,7 @@ def extract_specific(proto_stimulus_set):
     stimulus_set_specific_attributes =[]
     for name in list(proto_stimulus_set):
         if name not in general:
-            stimulus_set_specific_attributes.extend(name)
+            stimulus_set_specific_attributes.append(name)
     return stimulus_set_specific_attributes
 
 
@@ -30,8 +30,8 @@ def add_image_metadata_to_db(proto_stimulus_set, stim_set_model, image_store_mod
     eav_attributes = {}
 
     for name in stimulus_set_specific_attributes:
-        eav_attribute, created = AttributeModel.get_or_create(name=name,
-                                                              type=proto_stimulus_set[name].dtype.name)
+        target_type = type(proto_stimulus_set[name].values.item(0)).__name__
+        eav_attribute, created = AttributeModel.get_or_create(name=name, type=target_type)
         eav_attributes[name] = eav_attribute
 
     for image in proto_stimulus_set.itertuples():
