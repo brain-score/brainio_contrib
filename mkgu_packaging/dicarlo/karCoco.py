@@ -39,6 +39,7 @@ def collect_stimuli(data_path, stimuli_dir):
                 'image_path_within_store': filename,
                 'image_id': image_id,
                 'obj': object_name,
+                'image_label': object_name,
                 'sample_number': sample_number,
                 'object_number': object_number,
             })
@@ -57,14 +58,14 @@ def collect_data(data_path, stimuli):
             meta = stimuli[stimuli['sample_number'] == response['sample_number']]
             assert len(meta) == 1
             meta = meta.iloc[0]
-            response['sample_obj'] = meta['obj']
+            response['sample_obj'] = response['truth'] = meta['obj']
             response['image_id'] = meta['image_id']
             distractor_meta = stimuli[stimuli['object_number'] == response['distractor_number']]
             distractor_obj = set(distractor_meta['obj'])
             assert len(distractor_obj) == 1
-            response['distractor_obj'] = list(distractor_obj)[0]
+            response['dist_obj'] = list(distractor_obj)[0]
             response['correct'] = bool(response['correct'])
-            response['choice'] = response['sample_obj'] if response['correct'] else response['distractor_obj']
+            response['choice'] = response['sample_obj'] if response['correct'] else response['dist_obj']
             del response['correct']  # cannot be serialized to netcdf
             responses.append(response)
     responses = pd.DataFrame(responses)
@@ -93,7 +94,7 @@ def main():
     assert len(set(assembly['image_id'].values)) == 1600
     assert set(assembly['image_id'].values) == set(stimuli['image_id'])
     assert len(set(assembly['choice'].values)) == len(set(assembly['sample_obj'].values)) \
-           == len(set(assembly['distractor_obj'].values)) == 10
+           == len(set(assembly['dist_obj'].values)) == 10
 
     assembly.name = 'dicarlo.KarCoco'
     stimuli.name = 'dicarlo.karcoco'
@@ -117,10 +118,11 @@ def main():
 
 
 def upload(assembly, stimuli, target_dir, bucket_name='brainio-dicarlo'):
-    store_name = assembly.name.lower().replace('.', '_')
+    store_name = assembly.name.lower().replace('.', '_').replace(':', '_').replace(' ', '_')
     assembly_store_name = 'assy_' + store_name
     image_store_name = 'image_' + store_name
     # zip, meta
+    stimuli.to_pickle(os.path.join(target_dir, image_store_name) + '.pkl')
     print("Zipping stimuli")
     zip_basename = image_store_name + '.zip'
     zip_path = os.path.join(target_dir, zip_basename)
