@@ -61,9 +61,9 @@ def collect_stimuli(data_path, stimuli_dir):
 def collect_data(data_path, stimuli):
     data = []
     with h5py.File(data_path, 'r') as f:
-        osts = f['ost']
-        for ost, stimuli_row in tqdm(zip(osts[0], stimuli.itertuples()), total=len(osts), desc='trials'):
-            row = {'ost': ost, 'image_id': stimuli_row.image_id, 'obj': stimuli_row.obj}
+        osts, i1s = f['ost'], f['i1']
+        for ost, i1, stimuli_row in tqdm(zip(osts[0], i1s[0], stimuli.itertuples()), total=len(osts), desc='trials'):
+            row = {'ost': ost, 'i1': i1, 'image_id': stimuli_row.image_id, 'obj': stimuli_row.obj}
             data.append(row)
     data = pd.DataFrame(data)
     data = to_xarray(data)
