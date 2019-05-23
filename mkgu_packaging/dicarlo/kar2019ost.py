@@ -51,7 +51,7 @@ def collect_stimuli(data_path, stimuli_dir):
                 "image_file_sha1": im_kf.sha1,
                 "image_id": im_kf.sha1,
                 'image_num': image_num,
-                'obj': obj,
+                'image_label': obj,
             })
     stimuli = StimulusSet(stimuli)
     return stimuli
@@ -63,7 +63,7 @@ def collect_data(data_path, stimuli):
     with h5py.File(data_path, 'r') as f:
         osts, i1s = f['ost'], f['i1']
         for ost, i1, stimuli_row in tqdm(zip(osts[0], i1s[0], stimuli.itertuples()), total=len(osts), desc='trials'):
-            row = {'ost': ost, 'i1': i1, 'image_id': stimuli_row.image_id, 'obj': stimuli_row.obj}
+            row = {'ost': ost, 'i1': i1, 'image_id': stimuli_row.image_id, 'image_label': stimuli_row.image_label}
             data.append(row)
     data = pd.DataFrame(data)
     data = to_xarray(data)
@@ -90,7 +90,7 @@ def main():
     assert len(stimuli) == len(assembly) == 1320
     assert len(set(assembly['image_id'].values)) == 1318
     assert set(assembly['image_id'].values) == set(stimuli['image_id'])
-    assert len(set(assembly['obj'].values)) == 10
+    assert len(set(assembly['image_label'].values)) == 10
 
     assembly.name = 'dicarlo.Kar2019'
     stimuli.name = 'dicarlo.Kar2019'
