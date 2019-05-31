@@ -1,4 +1,4 @@
-import time
+import datetime
 from pathlib import Path
 import pandas as pd
 import brainio_contrib
@@ -17,10 +17,10 @@ def test_package_stimulus_set():
 def test_add_image_metadata_to_db():
     pwdb.connect(reuse_if_open=True)
     proto = prep_proto_stim()
-    stim_set_model, created = StimulusSetModel.get_or_create(name=f"test_stimulus_set.{time.time()}")
+    stim_set_model, created = StimulusSetModel.get_or_create(name=f"test_stimulus_set.{now()}")
     image_store_model, created = ImageStoreModel.get_or_create(location_type="test_loc_type", store_type="test_store_type",
-                                                               location="test_loc", unique_name=f"test_store.{time.time()}",
-                                                               sha1=f"foo.{time.time()}")
+                                                               location="test_loc", unique_name=f"test_store.{now()}",
+                                                               sha1=f"foo.{now()}")
     add_image_metadata_to_db(proto, stim_set_model, image_store_model)
     pw_query = ImageModel.select() \
         .join(StimulusSetImageMap) \
@@ -30,10 +30,16 @@ def test_add_image_metadata_to_db():
     assert len(pw_query) == 25
 
 
+def now():
+    return datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S_%f")
+
+
 def prep_proto_stim():
     image_dir = Path(__file__).parent / "images"
     csv_path = image_dir / "test_images.csv"
     proto = pd.read_csv(csv_path)
     proto["image_current_local_file_path"] = [image_dir / f for f in proto["image_current_relative_file_path"]]
     del proto["image_current_relative_file_path"]
+    proto["image_id"] = [f"{iid}.{now()}" for iid in proto["image_id"]]
+    proto[f"test_{now()}"] = [f"{iid}.{now()}" for iid in proto["image_id"]]
     return proto
