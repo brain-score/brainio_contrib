@@ -3,9 +3,6 @@
 
 from setuptools import setup, find_packages
 
-with open('README.md') as readme_file:
-    readme = readme_file.read()
-
 requirements = [
     "brainio_base @ git+https://github.com/brain-score/brainio_base",
     "brainio_collection @ git+https://github.com/brain-score/brainio_collection",
@@ -17,7 +14,6 @@ setup(
     name='brainio_contrib',
     version='0.1.0',
     description="Tools for adding material to the BrainIO system.",
-    long_description=readme,
     author="Jon Prescott-Roy, Martin Schrimpf",
     author_email='jjpr@mit.edu, mschrimpf@mit.edu',
     url='https://github.com/brain-score/brainio_contrib',
