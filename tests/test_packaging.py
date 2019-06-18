@@ -3,6 +3,8 @@ import os
 import zipfile
 from pathlib import Path
 import pandas as pd
+import pytest
+
 import brainio_contrib
 from brainio_contrib.packaging import package_stimulus_set, add_image_metadata_to_db, create_image_zip, \
     add_stimulus_set_metadata_and_lookup_to_db
@@ -11,6 +13,13 @@ from brainio_collection.lookup import pwdb
 from brainio_collection.knownfile import KnownFile as kf
 from brainio_collection.stimuli import StimulusSetModel, ImageStoreModel, AttributeModel, ImageModel, \
     StimulusSetImageMap, ImageStoreMap, ImageMetaModel
+
+
+@pytest.fixture
+def transaction():
+    with pwdb.atomic() as txn:
+        yield txn
+        txn.rollback()
 
 
 def now():
@@ -43,7 +52,7 @@ def test_create_image_zip():
             assert len(zi.filename) == 44
 
 
-def test_add_image_metadata_to_db():
+def test_add_image_metadata_to_db(transaction):
     pwdb.connect(reuse_if_open=True)
     proto = prep_proto_stim()
     stim_set_model, created = StimulusSetModel.get_or_create(name=f"test_stimulus_set.{now()}")
@@ -59,7 +68,7 @@ def test_add_image_metadata_to_db():
     assert len(pw_query) == 25
 
 
-def test_add_stimulus_set_metadata_and_lookup_to_db():
+def test_add_stimulus_set_metadata_and_lookup_to_db(transaction):
     stim_set_name = f"test_stimulus_set.{now()}"
     bucket_name = "brainio-temp"
     zip_file_name = "test_images.zip"
@@ -79,7 +88,7 @@ def test_add_stimulus_set_metadata_and_lookup_to_db():
     assert len(pw_query) == 25
 
 
-def test_package_stimulus_set():
+def test_package_stimulus_set(transaction):
     proto = prep_proto_stim()
     stim_set_name = "dicarlo.test." + now()
     test_bucket = "brainio-temp"
