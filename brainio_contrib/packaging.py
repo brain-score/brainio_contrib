@@ -89,6 +89,7 @@ def package_stimulus_set(proto_stimulus_set, stimulus_set_name, bucket_name="bra
     sha1 = create_image_zip(proto_stimulus_set, str(target_zip_path))
     upload_to_s3(str(target_zip_path), bucket_name, s3_key)
     stimulus_set_model = add_stimulus_set_metadata_and_lookup_to_db(proto_stimulus_set, stimulus_set_name, bucket_name, zip_file_name, image_store_unique_name, sha1)
+    return stimulus_set_model
 
 # functions to add:  (see mkgu_packaging/dicarlo/rajalingham2018objectome.py)
 # to_xarray

@@ -1,11 +1,14 @@
 import datetime
+import os
 import zipfile
 from pathlib import Path
 import pandas as pd
 import brainio_contrib
 from brainio_contrib.packaging import package_stimulus_set, add_image_metadata_to_db, create_image_zip, \
     add_stimulus_set_metadata_and_lookup_to_db
+import brainio_collection
 from brainio_collection.lookup import pwdb
+from brainio_collection.knownfile import KnownFile as kf
 from brainio_collection.stimuli import StimulusSetModel, ImageStoreModel, AttributeModel, ImageModel, \
     StimulusSetImageMap, ImageStoreMap, ImageMetaModel
 
@@ -78,7 +81,20 @@ def test_add_stimulus_set_metadata_and_lookup_to_db():
 
 def test_package_stimulus_set():
     proto = prep_proto_stim()
-    stim = package_stimulus_set(proto, stimulus_set_name="dicarlo.test."+now(), bucket_name="brainio-temp")
-    assert stim
+    stim_set_name = "dicarlo.test." + now()
+    test_bucket = "brainio-temp"
+    stim_model = package_stimulus_set(proto, stimulus_set_name=stim_set_name, bucket_name=test_bucket)
+    assert stim_model
+    assert stim_model.name == stim_set_name
+    stim_set_fetched = brainio_collection.get_stimulus_set(stim_set_name)
+    assert len(proto) == len(stim_set_fetched)
+    for image in proto.itertuples():
+        orig = image.image_current_local_file_path
+        fetched = stim_set_fetched.get_image(image.image_id)
+        assert os.path.basename(orig) == os.path.basename(fetched)
+        kf_orig = kf(orig)
+        kf_fetched = kf(fetched)
+        assert kf_orig.sha1 == kf_fetched.sha1
+
 
 
