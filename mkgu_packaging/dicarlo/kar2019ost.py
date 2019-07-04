@@ -13,10 +13,7 @@ from tqdm import tqdm
 from brainio_base.assemblies import DataAssembly
 from brainio_base.stimuli import StimulusSet
 from brainio_collection.knownfile import KnownFile
-from mkgu_packaging.dicarlo.rajalingham2018objectome import add_stimulus_set_metadata_and_lookup_to_db, \
-    add_assembly_lookup, upload_to_s3
-from mkgu_packaging.dicarlo.rajalingham2018objectome import create_image_zip, \
-    write_netcdf
+from brainio_contrib.packaging import package_stimulus_set, package_data_assembly
 
 object_lookup = {
     1: 'bear',
@@ -98,34 +95,15 @@ def main():
 
     assembly.name = 'dicarlo.Kar2019'
     stimuli.name = 'dicarlo.Kar2019'
-    upload(assembly, stimuli, target_dir)
+    package(assembly, stimuli)
 
 
-def upload(assembly, stimuli, target_dir, bucket_name='brainio-dicarlo'):
-    store_name = assembly.name.lower().replace('.', '_').replace(':', '_').replace(' ', '_')
-    assembly_store_name = 'assy_' + store_name
-    image_store_name = 'image_' + store_name
-    # zip, meta
-    stimuli.to_pickle(os.path.join(target_dir, image_store_name) + '.pkl')
-    print("Zipping stimuli")
-    zip_basename = image_store_name + '.zip'
-    zip_path = os.path.join(target_dir, zip_basename)
-    zip_sha1 = create_image_zip(stimuli, zip_path)
-    print("Adding StimulusSet lookup to db")
-    # stimulus_set_model = add_stimulus_set_metadata_and_lookup_to_db(
-    #     stimuli, stimulus_set_name=stimuli.name, bucket_name=bucket_name,
-    #     zip_file_name=zip_basename, image_store_unique_name=image_store_name, zip_sha1=zip_sha1)
-    print("Writing netcdf")
-    netcdf_basename = assembly_store_name + '.nc'
-    netcdf_path = os.path.join(target_dir, netcdf_basename)
-    write_netcdf(assembly, netcdf_path)
-    print("Adding assembly lookup to db")
-    # add_assembly_lookup(assembly.name, stim_set_model=stimulus_set_model, bucket_name=bucket_name,
-    #                     target_netcdf_file=netcdf_path, assembly_store_unique_name=assembly_store_name)
-    # upload
-    print("uploading to S3")
-    # upload_to_s3(zip_basename, bucket_name=bucket_name, target_s3_key=zip_basename)
-    # upload_to_s3(netcdf_path, bucket_name=bucket_name, target_s3_key=netcdf_basename)
+def package(assembly, stimuli):
+    print("Packaging stimuli")
+    package_stimulus_set(stimuli, stimulus_set_name=stimuli.name)
+
+    print("Packaging assembly")
+    package_data_assembly(assembly, data_assembly_name=assembly.name, stimulus_set_name=stimuli.name)
 
 
 if __name__ == '__main__':
