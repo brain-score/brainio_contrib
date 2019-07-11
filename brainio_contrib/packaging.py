@@ -22,7 +22,7 @@ def create_image_zip(proto_stimulus_set, target_zip_path):
 
 def upload_to_s3(source_file_path, bucket_name, target_s3_key):
     client = boto3.client('s3')
-    client.upload_file(source_file_path, bucket_name, target_s3_key)
+    client.upload_file(str(source_file_path), bucket_name, target_s3_key)
 
 
 def extract_specific(proto_stimulus_set):
