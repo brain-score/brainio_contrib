@@ -4,11 +4,13 @@ import pickle
 import numpy as np
 import pandas as pd
 from PIL import Image
-from brainscore.knownfile import KnownFile as kf
 from result_caching import store
 from tqdm import tqdm
 
-from mkgu_packaging.cifar import download_data, create_image_zip, add_image_lookup
+from brainio_base.stimuli import StimulusSet
+from brainio_collection.knownfile import KnownFile as kf
+from brainio_contrib.packaging import package_stimulus_set
+from mkgu_packaging.cifar import download_data
 
 
 def collect_stimuli_batch(pickle_file, stimuli_type, label_names, batch=1, write_image=True):
@@ -30,11 +32,11 @@ def collect_stimuli_batch(pickle_file, stimuli_type, label_names, batch=1, write
         stimuli.append({
             'image_id': im_kf.sha1,
             'image_file_name': image_file_name,
+            'image_path_within_store': image_file_name,
             'type': stimuli_type,
             'batch': batch,
-            'image_file_path': image_file_path,
             'image_file_sha1': im_kf.sha1,
-            'image_store_path': f"cifar10_stimuli/{stimuli_type}/{image_file_name}",
+            'image_current_local_file_path': image_file_path,
             'label': labels[i],
             'label_name': label_names[i],
         })
@@ -69,16 +71,11 @@ def main():
     download_data(out_dir=stimuli_dir, remote_url='https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz',
                   local_untarred_dir='cifar-10-batches-py')
     stimuli = collect_stimuli(stimuli_dir, write_image=True)
+    stimuli = StimulusSet(stimuli)
+    stimuli.name = "cifar10"
 
-    stimulus_set_name = "cifar10"
-    bucket_name = "brain-score-cifar"
-    image_store_unique_name = "image_cifar10_stimuli"
-    target_zip_path = os.path.join(os.path.dirname(__file__), image_store_unique_name + ".zip")
-
-    zip_sha1 = create_image_zip(stimuli, target_zip_path)
-    add_image_lookup(stimuli, target_zip_path, zip_sha1, stimulus_set_name, image_store_unique_name, bucket_name)
-
-    return stimuli
+    print("packaging")
+    package_stimulus_set(stimuli, stimulus_set_name=stimuli.name, bucket_name="brainio-contrib")
 
 
 if __name__ == '__main__':
