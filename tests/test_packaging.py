@@ -88,6 +88,7 @@ def test_add_stimulus_set_metadata_and_lookup_to_db(transaction):
     assert len(pw_query) == 25
 
 
+@pytest.mark.private_access
 def test_package_stimulus_set(transaction):
     proto = prep_proto_stim()
     stim_set_name = "dicarlo.test." + now()
