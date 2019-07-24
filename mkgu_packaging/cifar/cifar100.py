@@ -24,7 +24,7 @@ def collect_stimuli_batch(pickle_file, stimuli_type, coarse_label_names, fine_la
     stimuli_dir = os.path.join(os.path.dirname(pickle_file), stimuli_type + '-images')
     os.makedirs(stimuli_dir, exist_ok=True)
     for i in tqdm(range(images.shape[1]), desc=stimuli_type):
-        image_file_name = f'{i}.png'
+        image_file_name = f'{stimuli_type}-{i}.png'
         image_file_path = os.path.join(stimuli_dir, image_file_name)
         if write_image:
             image = Image.fromarray(images[:, i].reshape(3, 32, 32).transpose([1, 2, 0]))
