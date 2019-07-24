@@ -11,5 +11,4 @@ matrix:
 install:
 - pip install -e .
 script:
-- if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then pytest; fi
-- if [ "$TRAVIS_PULL_REQUEST" = "true" ];  then pytest -m "not private_access"; fi
+- if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then pytest; else pytest -m "not private_access"; fi
