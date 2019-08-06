@@ -1,18 +1,18 @@
-import datetime
 import os
 import zipfile
-from pathlib import Path
+
+import datetime
 import pandas as pd
 import pytest
+from pathlib import Path
 
-import brainio_contrib
+import brainio_collection
+from brainio_collection.knownfile import KnownFile as kf
+from brainio_collection.lookup import pwdb
+from brainio_collection.stimuli import StimulusSetModel, ImageStoreModel, ImageModel, \
+    StimulusSetImageMap, ImageStoreMap
 from brainio_contrib.packaging import package_stimulus_set, add_image_metadata_to_db, create_image_zip, \
     add_stimulus_set_metadata_and_lookup_to_db
-import brainio_collection
-from brainio_collection.lookup import pwdb
-from brainio_collection.knownfile import KnownFile as kf
-from brainio_collection.stimuli import StimulusSetModel, ImageStoreModel, AttributeModel, ImageModel, \
-    StimulusSetImageMap, ImageStoreMap, ImageMetaModel
 
 
 @pytest.fixture
@@ -88,6 +88,7 @@ def test_add_stimulus_set_metadata_and_lookup_to_db(transaction):
     assert len(pw_query) == 25
 
 
+@pytest.mark.private_access
 def test_package_stimulus_set(transaction):
     proto = prep_proto_stim()
     stim_set_name = "dicarlo.test." + now()
