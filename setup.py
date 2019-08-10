@@ -6,6 +6,7 @@ from setuptools import setup, find_packages
 requirements = [
     "brainio_base @ git+https://github.com/brain-score/brainio_base",
     "brainio_collection @ git+https://github.com/brain-score/brainio_collection",
+    "dldata @ git+https://github.com/dicarlolab/dldata",
     # test_requirements
     "pytest",
 ]
