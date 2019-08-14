@@ -1,17 +1,22 @@
+import logging
 import os
 import zipfile
-from pathlib import Path
 
 import boto3
+from pathlib import Path
+from tqdm import tqdm
 
+from brainio_collection.assemblies import AssemblyModel, AssemblyStoreModel, AssemblyStoreMap
 from brainio_collection.knownfile import KnownFile as kf
 from brainio_collection.lookup import pwdb
 from brainio_collection.stimuli import StimulusSetModel, ImageStoreModel, AttributeModel, ImageModel, \
     StimulusSetImageMap, ImageStoreMap, ImageMetaModel
-from brainio_collection.assemblies import AssemblyModel, AssemblyStoreModel, AssemblyStoreMap
+
+_logger = logging.getLogger(__name__)
 
 
 def create_image_zip(proto_stimulus_set, target_zip_path):
+    _logger.debug(f"Zipping stimulus set to {target_zip_path}")
     os.makedirs(os.path.dirname(target_zip_path), exist_ok=True)
     with zipfile.ZipFile(target_zip_path, 'w') as target_zip:
         for image in proto_stimulus_set.itertuples():
@@ -21,8 +26,16 @@ def create_image_zip(proto_stimulus_set, target_zip_path):
 
 
 def upload_to_s3(source_file_path, bucket_name, target_s3_key):
-    client = boto3.client('s3')
-    client.upload_file(str(source_file_path), bucket_name, target_s3_key)
+    _logger.debug(f"Uploading {source_file_path} to {bucket_name}/{target_s3_key}")
+
+    file_size = os.path.getsize(source_file_path)
+    with tqdm(total=file_size, unit='B', unit_scale=True, desc="upload to s3") as progress_bar:
+        def progress_hook(bytes_amount):
+            if bytes_amount > 0:  # at the end, this sometimes passes a negative byte amount which tqdm can't handle
+                progress_bar.update(bytes_amount)
+
+        client = boto3.client('s3')
+        client.upload_file(str(source_file_path), bucket_name, target_s3_key, Callback=progress_hook)
 
 
 def extract_specific(proto_stimulus_set):
@@ -44,7 +57,7 @@ def add_image_metadata_to_db(proto_stimulus_set, stim_set_model, image_store_mod
         eav_attribute, created = AttributeModel.get_or_create(name=name, type=target_type)
         eav_attributes[name] = eav_attribute
 
-    for image in proto_stimulus_set.itertuples():
+    for image in tqdm(proto_stimulus_set.itertuples(), desc='images->db', total=len(proto_stimulus_set)):
         pw_image, created = ImageModel.get_or_create(image_id=image.image_id)
         StimulusSetImageMap.get_or_create(stimulus_set=stim_set_model, image=pw_image)
         ImageStoreMap.get_or_create(image=pw_image, image_store=image_store_model, path=image.image_path_within_store)
@@ -55,6 +68,7 @@ def add_image_metadata_to_db(proto_stimulus_set, stim_set_model, image_store_mod
 
 def add_stimulus_set_lookup_to_db(stimulus_set_name, bucket_name, zip_file_name,
                                   image_store_unique_name, zip_sha1):
+    _logger.debug(f"Adding stimulus set {stimulus_set_name} to db")
     pwdb.connect(reuse_if_open=True)
     stim_set_model, created = StimulusSetModel.get_or_create(name=stimulus_set_name)
     image_store_model, created = ImageStoreModel.get_or_create(location_type="S3", store_type="zip",
@@ -94,6 +108,7 @@ def package_stimulus_set(proto_stimulus_set, stimulus_set_name, bucket_name="bra
 
 
 def write_netcdf(assembly, target_netcdf_file):
+    _logger.debug(f"Writing assembly to {target_netcdf_file}")
     assembly.reset_index(assembly.indexes.keys(), inplace=True)
     assembly.to_netcdf(target_netcdf_file)
     netcdf_kf = kf(target_netcdf_file)
@@ -102,6 +117,7 @@ def write_netcdf(assembly, target_netcdf_file):
 
 def add_data_assembly_lookup_to_db(assembly_name, stim_set_model, bucket_name, netcdf_sha1,
                                    assembly_store_unique_name, s3_key, assembly_class="NeuronRecordingAssembly"):
+    _logger.debug(f"Adding assembly {assembly_name} to db")
     assy, created = AssemblyModel.get_or_create(name=assembly_name, assembly_class=assembly_class,
                                                 stimulus_set=stim_set_model)
     store, created = AssemblyStoreModel.get_or_create(assembly_type="netCDF",
@@ -115,7 +131,7 @@ def add_data_assembly_lookup_to_db(assembly_name, stim_set_model, bucket_name, n
 
 
 def package_data_assembly(proto_data_assembly, data_assembly_name, stimulus_set_name,
-                          assembly_class="NeuronRecordingAssembly", bucket_name="brainio-dicarlo"):
+                          assembly_class="NeuronRecordingAssembly", bucket_name="brainio-contrib"):
     """
     Package a set of data along with its metadata for the BrainIO system.
     :param proto_data_assembly: An xarray DataArray containing experimental measurements and all related metadata.
@@ -145,6 +161,5 @@ def package_data_assembly(proto_data_assembly, data_assembly_name, stimulus_set_
     stim_set_model = StimulusSetModel.get(StimulusSetModel.name == stimulus_set_name)
 
     assy_model = add_data_assembly_lookup_to_db(data_assembly_name, stim_set_model, bucket_name, netcdf_kf_sha1,
-                                   assembly_store_unique_name, s3_key, assembly_class)
+                                                assembly_store_unique_name, s3_key, assembly_class)
     return assy_model
-
