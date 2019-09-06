@@ -78,9 +78,11 @@ def main():
     assembly.name = 'dicarlo.Kar2018cocogray'
 
     print("Packaging stimuli")
-    package_stimulus_set(stimuli, stimulus_set_name=stimuli.name)
+    package_stimulus_set(stimuli, stimulus_set_name=stimuli.name,
+                         bucket_name="brainio-dicarlo")
     print("Packaging assembly")
-    package_data_assembly(assembly, data_assembly_name=assembly.name, stimulus_set_name=stimuli.name)
+    package_data_assembly(assembly, data_assembly_name=assembly.name, stimulus_set_name=stimuli.name,
+                          bucket_name="brainio-dicarlo")
 
 
 if __name__ == '__main__':

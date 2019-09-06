@@ -86,7 +86,7 @@ def add_stimulus_set_metadata_and_lookup_to_db(proto_stimulus_set, stimulus_set_
     return stim_set_model
 
 
-def package_stimulus_set(proto_stimulus_set, stimulus_set_name, bucket_name="brainio-dicarlo"):
+def package_stimulus_set(proto_stimulus_set, stimulus_set_name, bucket_name="brainio-contrib"):
     """
     Package a set of images along with their metadata for the BrainIO system.
     :param proto_stimulus_set: A pandas DataFrame containing one row for each image, and the columns ['image_current_local_file_path', 'image_id', 'image_path_within_store'] and columns for all stimulus-set-specific metadata
