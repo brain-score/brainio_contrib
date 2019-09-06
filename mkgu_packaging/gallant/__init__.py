@@ -16,11 +16,14 @@ def main():
     data_files = glob.glob(os.path.join(args.directory, 'data', '*.csv'))
     data = pd.concat((pd.read_csv(f) for f in data_files))
     num_duplicates = len(data) - len(data.drop_duplicates())
-    assert num_duplicates == 0
+    # assert num_duplicates == 0
     data.rename(columns={'cellName': 'neuroid', 'stimuliPaths': 'image_file_name'}, inplace=True)
+    data['image_file_name'] = [file.replace('\\', '/') for file in data['image_file_name']]
+    data['image_id'] = [os.path.basename(os.path.splitext(file)[0])
+                        for file in data['image_file_name']]
     neuroids, neuroid_indices = unique_ordered(data['neuroid'].values, return_index=True)
-    print("Found responses for {} cells, average spike count {:.4f}".format(
-        len(neuroids), np.mean(data['response'])))
+    print("Found responses for {} cells, average spike count {:.4f}, {} duplicates".format(
+        len(neuroids), np.mean(data['response']), num_duplicates))
 
     responses = np.full((len(data), len(neuroids)), np.nan)
     row = 0
@@ -31,14 +34,15 @@ def main():
 
     assembly = xr.DataArray(responses,
                             coords={
-                                'image_file_name': data['image_file_name'],
-                                'category_name': ('image_file_name', data['stimulusCategory']),
-                                'stimulusRepeats': ('image_file_name', data['stimulusRepeats']),
+                                'image_id': data['image_id'],
+                                'image_file_name': ('image_id', data['image_file_name']),
+                                'category_name': ('image_id', data['stimulusCategory']),
+                                'stimulusRepeats': ('image_id', data['stimulusRepeats']),
 
                                 'neuroid': neuroids,
                                 'region': ('neuroid', data['area'].iloc[neuroid_indices]),
                                 'animal': ('neuroid', data['animal'].iloc[neuroid_indices])},
-                            dims=['image_file_name', 'neuroid'])
+                            dims=['image_id', 'neuroid'])
     print("Created {} assembly".format(" x ".join(map(str, assembly.shape))))
     savepath = os.path.abspath(os.path.join(args.directory, 'data.nc'))
     assembly.to_netcdf(savepath)
