@@ -27,10 +27,10 @@ def collect_stimuli(stimuli_directory):
         stimuli.append({
             'image_id': im_kf.sha1,
             'image_file_name': image_file_name,
-            'image_file_path': image_file_path,
+            'image_current_local_file_path': image_file_path,
             'image_file_sha1': im_kf.sha1,
             'image_number': image_number,
-            'image_store_path': f"coco-gray/{image_file_name}",
+            'image_path_within_store': image_file_name,
             'label': labels[image_number],
         })
     stimuli = pd.DataFrame(stimuli)
