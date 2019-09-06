@@ -1,14 +1,17 @@
 import os
-import re
 from glob import glob
 
 import h5py
 import numpy as np
 import pandas as pd
+import re
 import xarray as xr
-from brainscore.assemblies import NeuronRecordingAssembly
-from brainscore.knownfile import KnownFile as kf
+from pathlib import Path
 from tqdm import tqdm
+
+from brainio_base.assemblies import NeuronRecordingAssembly
+from brainio_collection.knownfile import KnownFile as kf
+from brainio_contrib.packaging import package_stimulus_set, package_data_assembly
 
 
 def collect_stimuli(stimuli_directory):
@@ -64,27 +67,20 @@ def load_responses(response_file, stimuli):
     assert len(np.unique(assembly['image_id'])) == 1600
     assert len(assembly.sel(monkey='nano')['neuroid']) == len(assembly.sel(monkey='magneto')['neuroid']) == 288
     assert len(assembly['neuroid']) == len(np.unique(assembly['neuroid_id'])) == 288 * 2
-
     return assembly
 
 
-def write_netcdf(assembly, target_netcdf_file):
-    assembly.reset_index(assembly.indexes.keys(), inplace=True)
-    assembly.to_netcdf(target_netcdf_file)
-
-
 def main():
-    stimuli_dir = os.path.join(os.path.dirname(__file__), 'stimuli')
-    stimuli = collect_stimuli(stimuli_dir)
+    data_dir = Path(__file__).parent / 'ko_coco'
+    stimuli = collect_stimuli(data_dir / 'stimuli')
+    stimuli.name = 'dicarlo.Kar2018cocogray'
+    assembly = load_responses(data_dir / 'cocoGray_neural.h5', stimuli)
+    assembly.name = 'dicarlo.Kar2018cocogray'
 
-    neural_file = os.path.join(os.path.dirname(__file__), 'cocoGray_neural.h5')
-    assembly = load_responses(neural_file, stimuli)
-
-    target_netcdf_file = os.path.join(os.path.dirname(__file__), 'coco.nc')
-    write_netcdf(assembly, target_netcdf_file)
-    print(f"wrote {target_netcdf_file}")
-
-    return stimuli, assembly
+    print("Packaging stimuli")
+    package_stimulus_set(stimuli, stimulus_set_name=stimuli.name)
+    print("Packaging assembly")
+    package_data_assembly(assembly, data_assembly_name=assembly.name, stimulus_set_name=stimuli.name)
 
 
 if __name__ == '__main__':
