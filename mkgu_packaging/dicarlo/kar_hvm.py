@@ -1,9 +1,10 @@
-import os
-
 import h5py
 import numpy as np
 import xarray as xr
-from brainscore.assemblies import NeuronRecordingAssembly
+from pathlib import Path
+
+from brainio_base.assemblies import NeuronRecordingAssembly
+from brainio_contrib.packaging import package_data_assembly
 
 
 def load_responses(response_file, stimuli_ids):
@@ -36,25 +37,17 @@ def load_responses(response_file, stimuli_ids):
     return assembly
 
 
-def write_netcdf(assembly, target_netcdf_file):
-    assembly.reset_index(assembly.indexes.keys(), inplace=True)
-    assembly.to_netcdf(target_netcdf_file)
-
-
 def main():
-    ids_file = os.path.join(os.path.dirname(__file__), 'hvm640_ids.mat')
-    stimuli_ids = h5py.File(ids_file, 'r')
+    data_dir = Path(__file__).parent / 'ko_hvm'
+    stimuli_ids = h5py.File(data_dir / 'hvm640_ids.mat', 'r')
     stimuli_ids = [''.join(chr(c) for c in stimuli_ids[stimuli_ids['hvm640_ids'].value[0, i]])
                    for i in range(stimuli_ids['hvm640_ids'].value[0].size)]
 
-    neural_file = os.path.join(os.path.dirname(__file__), 'hvm640_neural.h5')
-    assembly = load_responses(neural_file, stimuli_ids)
+    assembly = load_responses(data_dir / 'hvm640_neural.h5', stimuli_ids)
+    assembly.name = 'dicarlo.Kar2018hvm'
 
-    target_netcdf_file = os.path.join(os.path.dirname(__file__), 'hvm640_ko.nc')
-    write_netcdf(assembly, target_netcdf_file)
-    print(f"wrote {target_netcdf_file}")
-
-    return assembly
+    package_data_assembly(assembly, data_assembly_name=assembly.name, stimulus_set_name='dicarlo.hvm',
+                          bucket_name='brainio-dicarlo')
 
 
 if __name__ == '__main__':
