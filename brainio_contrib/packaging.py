@@ -4,6 +4,8 @@ import zipfile
 
 import boto3
 from pathlib import Path
+
+from brainio_base.stimuli import StimulusSet
 from tqdm import tqdm
 
 from brainio_collection.assemblies import AssemblyModel, AssemblyStoreModel, AssemblyStoreMap
@@ -19,8 +21,12 @@ def create_image_zip(proto_stimulus_set, target_zip_path):
     _logger.debug(f"Zipping stimulus set to {target_zip_path}")
     os.makedirs(os.path.dirname(target_zip_path), exist_ok=True)
     with zipfile.ZipFile(target_zip_path, 'w') as target_zip:
-        for image in proto_stimulus_set.itertuples():
-            target_zip.write(proto_stimulus_set.get_image(image.image_id), arcname=image.image_file_name)
+        if proto_stimulus_set is StimulusSet:
+            for image in proto_stimulus_set.itertuples():
+                target_zip.write(proto_stimulus_set.get_image(image.image_id), arcname=image.image_file_name)
+        else:
+            for image in proto_stimulus_set.itertuples():
+                target_zip.write(image.image_current_local_file_path, arcname=image.image_path_within_store)
     zip_kf = kf(target_zip_path)
     return zip_kf.sha1
 
@@ -61,15 +67,11 @@ def add_image_metadata_to_db(proto_stimulus_set, stim_set_model, image_store_mod
         pw_image, created = ImageModel.get_or_create(image_id=image.image_id)
         _, created = StimulusSetImageMap.get_or_create(stimulus_set=stim_set_model, image=pw_image)
         # assert created
-        ImageStoreMap.get_or_create(image=pw_image, image_store=image_store_model, path=image.image_file_name)
-        if image.id:
-            for name in eav_attributes:
-                ImageMetaModel.update(id=image.id, image=pw_image, attribute=eav_attributes[name],
-                                      value=str(getattr(image, name)))
-        else:
-            for name in eav_attributes:
-                ImageMetaModel.get_or_create(image=pw_image, attribute=eav_attributes[name],
-                                             value=str(getattr(image, name)))
+        file_name = image.image_file_name if not image.image_path_within_store else image.image_path_within_store
+        ImageStoreMap.get_or_create(image=pw_image, image_store=image_store_model, path=file_name)
+        for name in eav_attributes:
+            ImageMetaModel.get_or_create(image=pw_image, attribute=eav_attributes[name],
+                                         value=str(getattr(image, name)))
 
 
 def add_stimulus_set_lookup_to_db(stimulus_set_name, bucket_name, zip_file_name,
