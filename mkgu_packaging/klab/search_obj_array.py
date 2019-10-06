@@ -22,7 +22,7 @@ def collect_stimuli(data_path):
     arr_loc = loadmat(os.path.join(data_path, 'gt/array.mat'))
 
     for i in range(1, 301):
-        j = (np.argmax(arr_loc['MyData'][i-1]['arraycate'][0] == arr_loc['MyData'][i-1]['targetcate'][0])) + 1
+        j = (np.argmax(arr_loc['MyData'][i-1]['arraycate'][0] == arr_loc['MyData'][i-1]['targetcate'][0]))
         target_path = os.path.join(data_path, 'stimuli/array_' + str(i) + '.jpg')
         filename = 'array_' + str(i) + '.jpg'
         image_label = 'stimuli'
@@ -32,12 +32,12 @@ def collect_stimuli(data_path):
             'image_current_local_file_path': target_path,
             'image_path_within_store': filename,
             'image_label': image_label,
-            'tar_obj_pos': j - 1,
+            'tar_obj_pos': j,
             'sample_number': sample_number,
         })
 
     for i in range(1, 301):
-        j = (np.argmax(arr_loc['MyData'][i-1]['arraycate'][0] == arr_loc['MyData'][i-1]['targetcate'][0])) + 1
+        j = (np.argmax(arr_loc['MyData'][i-1]['arraycate'][0] == arr_loc['MyData'][i-1]['targetcate'][0]))
         target_path = os.path.join(data_path, 'target/target_' + str(i) + '.jpg')
         filename = 'target_' + str(i) + '.jpg'
         image_label = 'target'
@@ -47,7 +47,7 @@ def collect_stimuli(data_path):
             'image_current_local_file_path': target_path,
             'image_path_within_store': filename,
             'image_label': image_label,
-            'tar_obj_pos': j - 1,
+            'tar_obj_pos': j,
             'sample_number': sample_number,
         })
 
@@ -81,7 +81,7 @@ def collect_data(data_path, sub_id):
                                 coords={'image_id': [*range(1, 301)],
                                         'fixation': [*range(7)],
                                         'position': ['x', 'y']},
-                                dims=['presentation', 'fixation', 'position'])
+                                dims=['image_id', 'fixation', 'position'])
     return assembly
 
 
@@ -91,13 +91,13 @@ def main():
 
     # create stimuli
     stimuli = collect_stimuli(data_path)
-    stimuli.name = 'klab.Zhang2019'
+    stimuli.name = 'klab.Zhang2018.search_obj_array'
 
     # create assembly for different subjects
     assemblies = []
     for i in range(1, 16):
         assembly = collect_data(data_path, sub_id = i)
-        assembly.name = 'klab.Zhang2019sub_' + str(i)
+        assembly.name = 'klab.Zhang2018search_obj_array_sub_' + str(i)
         assemblies.append(assembly)
 
     # package
