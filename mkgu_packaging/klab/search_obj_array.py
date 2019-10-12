@@ -68,20 +68,23 @@ def collect_stimuli(data_path):
     stimuli = StimulusSet(stimuli)
     return stimuli
 
-def collect_data(data_path, sub_id):
-    arr_loc = loadmat(os.path.join(data_path, 'human_data/sub_' + str(sub_id) + '.mat'))
+def collect_data(data_path, subjects):
+    data = np.zeros((300*len(subjects), 7, 2), dtype=int)
 
-    data = np.zeros((300, 7, 2), dtype=int)
-    for i in range(300):
-        j = arr_loc['x'][0][i].reshape((-1,)).shape[0]
-        data[i, :j, 0] = arr_loc['x'][0][i].reshape((-1,))
-        data[i, :j, 1] = arr_loc['y'][0][i].reshape((-1,))
+    for sub_id in subjects:
+        arr_loc = loadmat(os.path.join(data_path, 'human_data/sub_' + str(sub_id) + '.mat'))
+
+        for i in range(300):
+            j = arr_loc['x'][0][i].reshape((-1,)).shape[0]
+            data[i + 300*(sub_id - 1), :j, 0] = arr_loc['x'][0][i].reshape((-1,))
+            data[i + 300*(sub_id - 1), :j, 1] = arr_loc['y'][0][i].reshape((-1,))
 
     assembly = BehavioralAssembly(data,
-                                coords={'image_id': [*range(1, 301)],
-                                        'fixation': [*range(7)],
-                                        'position': ['x', 'y']},
-                                dims=['image_id', 'fixation', 'position'])
+                               coords={'image_id': ('presentation', image_id*len(subjects)),
+                                       'subjects': ('presentation', subjects*len(image_id)),
+                                       'fixation': [*range(7)],
+                                       'position': ['x', 'y']},
+                               dims=['presentation', 'fixation', 'position'])
     return assembly
 
 
@@ -94,17 +97,13 @@ def main():
     stimuli.name = 'klab.Zhang2018.search_obj_array'
 
     # create assembly for different subjects
-    assemblies = []
-    for i in range(1, 16):
-        assembly = collect_data(data_path, sub_id = i)
-        assembly.name = 'klab.Zhang2018search_obj_array_sub_' + str(i)
-        assemblies.append(assembly)
+    assembly = collect_data(data_path, [*range(1, 16)])
+    assembly.name = 'klab.Zhang2018search_obj_array'
 
     # package
     print("Packaging")
     package_stimulus_set(stimuli, stimulus_set_name=stimuli.name)
-    for assembly in assemblies:
-        package_data_assembly(assembly, data_assembly_name=assembly.name, stimulus_set_name=stimuli.name)
+    package_data_assembly(assembly, data_assembly_name=assembly.name, stimulus_set_name=stimuli.name)
 
 
 if __name__ == '__main__':
