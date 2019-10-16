@@ -55,8 +55,7 @@ def package_Movshon_datasets(name):
                                    dims=['image_id']).stack(presentation=['image_id'])
         assembly = subset(base_assembly, subset_indexer, dims_must_match=False)
         adapt_stimulus_set(assembly, access)
-        package_stimulus_set(assembly.attrs['stimulus_set'], stimulus_set_name=assembly.attrs['stimulus_set_name'],
-                             bucket_name="brainio-dicarlo")
+        package_stimulus_set(assembly.attrs['stimulus_set'], stimulus_set_name=assembly.attrs['stimulus_set_name'])
         del assembly.attrs['stimulus_set']
         package_data_assembly(assembly, f"{name}.{access}", stimulus_set_name=assembly.attrs['stimulus_set_name'])
 
