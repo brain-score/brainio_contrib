@@ -65,8 +65,7 @@ def add_image_metadata_to_db(proto_stimulus_set, stim_set_model, image_store_mod
 
     for image in tqdm(proto_stimulus_set.itertuples(), desc='images->db', total=len(proto_stimulus_set)):
         pw_image, created = ImageModel.get_or_create(image_id=image.image_id)
-        _, created = StimulusSetImageMap.get_or_create(stimulus_set=stim_set_model, image=pw_image)
-        # assert created
+        StimulusSetImageMap.get_or_create(stimulus_set=stim_set_model, image=pw_image)
         file_name = image.image_file_name if not image.image_path_within_store else image.image_path_within_store
         ImageStoreMap.get_or_create(image=pw_image, image_store=image_store_model, path=file_name)
         for name in eav_attributes:
@@ -156,7 +155,7 @@ def package_data_assembly(proto_data_assembly, data_assembly_name, stimulus_set_
         * For published: <lab identifier>.<b for behavioral|n for neuroidal>.<m for monkey|h for human>.<first author e.g. 'Rajalingham'><YYYY year of publication>
     :param stimulus_set_name: The unique name of an existing StimulusSet in the BrainIO system.
     :param assembly_class: The name of a DataAssembly subclass.
-    :param bucket_name: 'brainio-dicarlo' for DiCarlo Lab stimulus sets, 'brainio-contrib' for
+    :param bucket_name: 'brainio-dicarlo' for DiCarlo Lab assemblies, 'brainio-contrib' for
     external stimulus sets.
     :return:
     """
