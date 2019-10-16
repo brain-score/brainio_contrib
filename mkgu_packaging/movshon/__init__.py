@@ -9,10 +9,10 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from brainio_collection.knownfile import KnownFile as kf
-from brainio_collection.lookup import pwdb
-from brainio_collection.assemblies import AssemblyModel, AssemblyStoreMap, AssemblyStoreModel
-from brainio_collection.stimuli import ImageModel, AttributeModel, ImageMetaModel, StimulusSetModel, ImageStoreModel, \
+from brainscore.knownfile import KnownFile as kf
+from brainscore.lookup import pwdb
+from brainscore.assemblies import AssemblyModel, AssemblyStoreMap, AssemblyStoreModel
+from brainscore.stimuli import ImageModel, AttributeModel, ImageMetaModel, StimulusSetModel, ImageStoreModel, \
     StimulusSetImageMap, ImageStoreMap
 
 # from FreemanZiemba2013_V1V2data_readme.m

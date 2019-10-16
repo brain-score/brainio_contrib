@@ -35,17 +35,6 @@ def apply_keep_attrs(assembly, fnc):  # workaround to keeping attrs
     assembly.attrs = attrs
     return assembly
 
-
-def average_repetition(assembly):
-    def avg_repr(assembly):
-        presentation_coords = [coord for coord, dims, values in walk_coords(assembly)
-                               if array_is_element(dims, 'presentation') and coord != 'repetition']
-        assembly = assembly.multi_groupby(presentation_coords).mean(dim='presentation', skipna=True)
-        return assembly
-
-    return apply_keep_attrs(assembly, avg_repr)
-
-
 def package_Movshon_datasets(name):
     assembly = load_assembly(name)
     assembly.load()
@@ -104,7 +93,7 @@ def package_dicarlo_datasets(name):
         package_stimulus_set(assembly.attrs['stimulus_set'], stimulus_set_name=assembly.attrs['stimulus_set_name'],
                              bucket_name="brainio-dicarlo")
         del assembly.attrs['stimulus_set']
-        package_data_assembly(assembly, f'{name}.{variation_name}',assembly.attrs['stimulus_set_name'])
+        package_data_assembly(assembly, f'{name}.{variation_name}',assembly.attrs['stimulus_set_name'], bucket_name='brainio-dicarlo')
     return assembly
 
 
