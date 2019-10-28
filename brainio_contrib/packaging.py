@@ -65,7 +65,8 @@ def add_image_metadata_to_db(proto_stimulus_set, stim_set_model, image_store_mod
     for image in tqdm(proto_stimulus_set.itertuples(), desc='images->db', total=len(proto_stimulus_set)):
         pw_image, created = ImageModel.get_or_create(image_id=image.image_id)
         StimulusSetImageMap.get_or_create(stimulus_set=stim_set_model, image=pw_image)
-        ImageStoreMap.get_or_create(image=pw_image, image_store=image_store_model, path=image.image_path_within_store)
+        file_name = image.image_path_within_store if hasattr(image,'image_path_within_store') else image.image_file_name
+        ImageStoreMap.get_or_create(image=pw_image, image_store=image_store_model, path=file_name)
         for name in eav_attributes:
             ImageMetaModel.get_or_create(image=pw_image, attribute=eav_attributes[name],
                                          value=str(getattr(image, name)))

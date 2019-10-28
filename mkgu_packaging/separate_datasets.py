@@ -35,6 +35,7 @@ def apply_keep_attrs(assembly, fnc):  # workaround to keeping attrs
     assembly.attrs = attrs
     return assembly
 
+
 def package_Movshon_datasets(name):
     assembly = load_assembly(name)
     assembly.load()
@@ -48,19 +49,18 @@ def package_Movshon_datasets(name):
     split = next(splitter.split(np.zeros(len(image_ids)), stratification_values))
     access_indices = {assembly_type: image_indices
                       for assembly_type, image_indices in zip(['public', 'private'], split)}
-    for access in ['public','private']:
+    for access in ['public', 'private']:
         indices = access_indices[access]
         subset_image_ids = image_ids[indices]
-        subset_indexer = DataArray(np.zeros(len(subset_image_ids)), coords={'image_id': subset_image_ids},
-                                   dims=['image_id']).stack(presentation=['image_id'])
-        assembly = subset(base_assembly, subset_indexer, dims_must_match=False)
+        assembly = base_assembly[
+            {'presentation': [image_id in subset_image_ids for image_id in base_assembly['image_id'].values]}]
         adapt_stimulus_set(assembly, access)
         package_stimulus_set(assembly.attrs['stimulus_set'], stimulus_set_name=assembly.attrs['stimulus_set_name'])
         del assembly.attrs['stimulus_set']
         package_data_assembly(assembly, f"{name}.{access}", stimulus_set_name=assembly.attrs['stimulus_set_name'])
 
     # not really sure if this is necessary
-    return base_assembly
+    return assembly
 
 
 def _filter_erroneous_neuroids(assembly):
@@ -82,11 +82,9 @@ def package_dicarlo_datasets(name):
     base_assembly = load_assembly(name)
     base_assembly.load()
     base_assembly = _filter_erroneous_neuroids(base_assembly)
-    for variation_name, variation in {'public': [0,3], 'private':[6]}.items():
-        variation_selection = DataArray([0] * len(variation), coords={'variation': variation},
-                                        dims=['variation']).stack(presentation=['variation'])
-        assembly = subset(base_assembly, variation_selection, repeat=True, dims_must_match=False)
-        assembly.name = f'{name}.{variation_name}'
+    for variation_name, target_variation in {'public': [0, 3], 'private': [6]}.items():
+        assembly = base_assembly[
+            {'presentation': [variation in target_variation for variation in base_assembly['variation'].values]}]
         assert hasattr(assembly, 'variation')
         adapt_stimulus_set(assembly, name_suffix=variation_name)
         package_stimulus_set(assembly.attrs['stimulus_set'], stimulus_set_name=assembly.attrs['stimulus_set_name'],
