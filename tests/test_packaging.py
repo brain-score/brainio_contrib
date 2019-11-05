@@ -32,11 +32,12 @@ def prep_proto_stim():
     image_dir = Path(__file__).parent / "images"
     csv_path = image_dir / "test_images.csv"
     proto = pd.read_csv(csv_path)
-    proto["image_current_local_file_path"] = [image_dir / f for f in proto["image_current_relative_file_path"]]
-    del proto["image_current_relative_file_path"]
     proto["image_id"] = [f"{iid}.{now()}" for iid in proto["image_id"]]
     proto[f"test_{now()}"] = [f"{iid}.{now()}" for iid in proto["image_id"]]
-    return StimulusSet(proto)
+    proto = StimulusSet(proto)
+    proto.image_paths = {row.image_id: image_dir / row.image_current_relative_file_path for row in proto.itertuples()}
+    proto['image_file_name']= proto['image_path_within_store']
+    return proto
 
 
 def test_create_image_zip():
@@ -101,7 +102,7 @@ def test_package_stimulus_set(transaction):
     stim_set_fetched = brainio_collection.get_stimulus_set(stim_set_name)
     assert len(proto) == len(stim_set_fetched)
     for image in proto.itertuples():
-        orig = image.image_current_local_file_path
+        orig = proto.get_image(image.image_id)
         fetched = stim_set_fetched.get_image(image.image_id)
         assert os.path.basename(orig) == os.path.basename(fetched)
         kf_orig = kf(orig)
