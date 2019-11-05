@@ -6,6 +6,8 @@ import pandas as pd
 import pytest
 from pathlib import Path
 
+from brainio_base.stimuli import StimulusSet
+
 import brainio_collection
 from brainio_collection.knownfile import KnownFile as kf
 from brainio_collection.lookup import pwdb
@@ -34,7 +36,7 @@ def prep_proto_stim():
     del proto["image_current_relative_file_path"]
     proto["image_id"] = [f"{iid}.{now()}" for iid in proto["image_id"]]
     proto[f"test_{now()}"] = [f"{iid}.{now()}" for iid in proto["image_id"]]
-    return proto
+    return StimulusSet(proto)
 
 
 def test_create_image_zip():

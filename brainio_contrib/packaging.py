@@ -20,7 +20,7 @@ def create_image_zip(proto_stimulus_set, target_zip_path):
     _logger.debug(f"Zipping stimulus set to {target_zip_path}")
     os.makedirs(os.path.dirname(target_zip_path), exist_ok=True)
     with zipfile.ZipFile(target_zip_path, 'w') as target_zip:
-        if proto_stimulus_set is StimulusSet:
+        if isinstance(proto_stimulus_set,StimulusSet):
             for image in proto_stimulus_set.itertuples():
                 target_zip.write(proto_stimulus_set.get_image(image.image_id), arcname=image.image_file_name)
         else:
