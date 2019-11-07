@@ -6,21 +6,25 @@ import boto3
 from pathlib import Path
 from tqdm import tqdm
 
+from brainio_base.stimuli import StimulusSet
 from brainio_collection.assemblies import AssemblyModel, AssemblyStoreModel, AssemblyStoreMap
 from brainio_collection.knownfile import KnownFile as kf
 from brainio_collection.lookup import pwdb
 from brainio_collection.stimuli import StimulusSetModel, ImageStoreModel, AttributeModel, ImageModel, \
-    StimulusSetImageMap, ImageStoreMap, ImageMetaModel
+    ImageStoreMap, ImageMetaModel, StimulusSetImageMap
 
 _logger = logging.getLogger(__name__)
 
 
 def create_image_zip(proto_stimulus_set, target_zip_path):
     _logger.debug(f"Zipping stimulus set to {target_zip_path}")
+    assert isinstance(proto_stimulus_set, StimulusSet), f"Expected StimulusSet object, got {proto_stimulus_set}"
     os.makedirs(os.path.dirname(target_zip_path), exist_ok=True)
     with zipfile.ZipFile(target_zip_path, 'w') as target_zip:
         for image in proto_stimulus_set.itertuples():
-            target_zip.write(image.image_current_local_file_path, arcname=image.image_path_within_store)
+            arcname = image.image_path_within_store if hasattr(image, 'image_path_within_store') \
+                else image.image_file_name
+            target_zip.write(proto_stimulus_set.get_image(image.image_id), arcname=arcname)
     zip_kf = kf(target_zip_path)
     return zip_kf.sha1
 
@@ -60,7 +64,9 @@ def add_image_metadata_to_db(proto_stimulus_set, stim_set_model, image_store_mod
     for image in tqdm(proto_stimulus_set.itertuples(), desc='images->db', total=len(proto_stimulus_set)):
         pw_image, created = ImageModel.get_or_create(image_id=image.image_id)
         StimulusSetImageMap.get_or_create(stimulus_set=stim_set_model, image=pw_image)
-        ImageStoreMap.get_or_create(image=pw_image, image_store=image_store_model, path=image.image_path_within_store)
+        file_name = image.image_path_within_store if hasattr(image,
+                                                             'image_path_within_store') else image.image_file_name
+        ImageStoreMap.get_or_create(image=pw_image, image_store=image_store_model, path=file_name)
         for name in eav_attributes:
             ImageMetaModel.get_or_create(image=pw_image, attribute=eav_attributes[name],
                                          value=str(getattr(image, name)))
@@ -89,7 +95,9 @@ def add_stimulus_set_metadata_and_lookup_to_db(proto_stimulus_set, stimulus_set_
 def package_stimulus_set(proto_stimulus_set, stimulus_set_name, bucket_name="brainio-contrib"):
     """
     Package a set of images along with their metadata for the BrainIO system.
-    :param proto_stimulus_set: A pandas DataFrame containing one row for each image, and the columns ['image_current_local_file_path', 'image_id', 'image_path_within_store'] and columns for all stimulus-set-specific metadata
+    :param proto_stimulus_set: A StimulusSet containing one row for each image,
+        and the columns {'image_id', 'image_file_name', ['image_path_within_store' (optional to structure zip directory layout)]}
+        and columns for all stimulus-set-specific metadata
     :param stimulus_set_name: A dot-separated string starting with a lab identifier.
     :param bucket_name: 'brainio-dicarlo' for DiCarlo Lab stimulus sets, 'brainio-contrib' for
     external stimulus sets.
@@ -109,7 +117,8 @@ def package_stimulus_set(proto_stimulus_set, stimulus_set_name, bucket_name="bra
 
 def write_netcdf(assembly, target_netcdf_file):
     _logger.debug(f"Writing assembly to {target_netcdf_file}")
-    assembly.reset_index(assembly.indexes.keys(), inplace=True)
+    for index in assembly.indexes.keys():
+        assembly.reset_index(index, inplace=True)
     assembly.to_netcdf(target_netcdf_file)
     netcdf_kf = kf(target_netcdf_file)
     return netcdf_kf.sha1
@@ -147,8 +156,7 @@ def package_data_assembly(proto_data_assembly, data_assembly_name, stimulus_set_
         * For published: <lab identifier>.<b for behavioral|n for neuroidal>.<m for monkey|h for human>.<first author e.g. 'Rajalingham'><YYYY year of publication>
     :param stimulus_set_name: The unique name of an existing StimulusSet in the BrainIO system.
     :param assembly_class: The name of a DataAssembly subclass.
-    :param bucket_name: 'brainio-dicarlo' for DiCarlo Lab stimulus sets, 'brainio-contrib' for
-    external stimulus sets.
+    :param bucket_name: 'brainio-dicarlo' for DiCarlo Lab assemblies, 'brainio-contrib' for external assemblies.
     :return:
     """
     assembly_store_unique_name = "assy_" + data_assembly_name.replace(".", "_")
