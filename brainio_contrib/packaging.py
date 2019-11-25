@@ -3,6 +3,7 @@ import zipfile
 from pathlib import Path
 
 import boto3
+import xarray as xr
 
 from brainio_collection.knownfile import KnownFile as kf
 from brainio_collection.lookup import pwdb
@@ -94,8 +95,8 @@ def package_stimulus_set(proto_stimulus_set, stimulus_set_name, bucket_name="bra
 
 
 def write_netcdf(assembly, target_netcdf_file):
-    assembly.reset_index(assembly.indexes.keys(), inplace=True)
-    assembly.to_netcdf(target_netcdf_file)
+    assembly_da = xr.DataArray(assembly).reset_index(assembly.indexes.keys())
+    assembly_da.to_netcdf(target_netcdf_file)
     netcdf_kf = kf(target_netcdf_file)
     return netcdf_kf.sha1
 
