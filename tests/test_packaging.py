@@ -1,20 +1,27 @@
-import datetime
 import os
 import zipfile
-from pathlib import Path
-import numpy as np
+import datetime
 import pandas as pd
-import xarray as xr
 import pytest
+from pathlib import Path
 
-import brainio_contrib
-from brainio_contrib.packaging import package_stimulus_set, add_image_metadata_to_db, create_image_zip, \
-    add_stimulus_set_metadata_and_lookup_to_db, package_data_assembly, write_netcdf
+import xarray as xr
+
+from brainio_base.stimuli import StimulusSet
 import brainio_collection
-from brainio_collection.lookup import pwdb
 from brainio_collection.knownfile import KnownFile as kf
-from brainio_collection.stimuli import StimulusSetModel, ImageStoreModel, AttributeModel, ImageModel, \
-    StimulusSetImageMap, ImageStoreMap, ImageMetaModel
+from brainio_collection.lookup import pwdb
+from brainio_collection.stimuli import StimulusSetModel, ImageStoreModel, ImageModel, \
+    StimulusSetImageMap, ImageStoreMap
+from brainio_contrib.packaging import package_stimulus_set, add_image_metadata_to_db, create_image_zip, \
+    add_stimulus_set_metadata_and_lookup_to_db, write_netcdf, package_data_assembly
+
+
+@pytest.fixture()
+def transaction():
+    with pwdb.atomic() as txn:
+        yield txn
+        txn.rollback()
 
 
 def now():
@@ -22,21 +29,16 @@ def now():
 
 
 @pytest.fixture
-def transaction():
-    with pwdb.atomic() as txn:
-        yield txn
-        txn.rollback()
-
-
-@pytest.fixture
 def proto_stim():
     image_dir = Path(__file__).parent / "images"
     csv_path = image_dir / "test_images.csv"
     proto = pd.read_csv(csv_path)
-    proto["image_current_local_file_path"] = [image_dir / f for f in proto["image_current_relative_file_path"]]
-    del proto["image_current_relative_file_path"]
-    proto["image_id"] = [f"{iid}.{now()}" for iid in proto["image_id"]]
+    # proto["image_id"] = [f"{iid}.{now()}" for iid in proto["image_id"]]
     proto[f"test_{now()}"] = [f"{iid}.{now()}" for iid in proto["image_id"]]
+    proto = StimulusSet(proto)
+    proto.image_paths = {row.image_id: image_dir / row.image_current_relative_file_path for row in proto.itertuples()}
+    del proto["image_current_relative_file_path"]
+    proto['image_file_name']= proto['image_path_within_store']
     return proto
 
 
@@ -101,6 +103,7 @@ def test_add_stimulus_set_metadata_and_lookup_to_db(transaction, proto_stim):
     assert len(pw_query) == 25
 
 
+@pytest.mark.private_access
 def test_package_stimulus_set(transaction, proto_stim):
     stim_set_name = "dicarlo.test." + now()
     test_bucket = "brainio-temp"
@@ -110,7 +113,7 @@ def test_package_stimulus_set(transaction, proto_stim):
     stim_set_fetched = brainio_collection.get_stimulus_set(stim_set_name)
     assert len(proto_stim) == len(stim_set_fetched)
     for image in proto_stim.itertuples():
-        orig = image.image_current_local_file_path
+        orig = proto_stim.get_image(image.image_id)
         fetched = stim_set_fetched.get_image(image.image_id)
         assert os.path.basename(orig) == os.path.basename(fetched)
         kf_orig = kf(orig)

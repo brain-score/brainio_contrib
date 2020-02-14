@@ -1,14 +1,21 @@
-function convertGallant(directory, dryRun)
+function convertGallant(directory, stimuliType, dryRun)
 if ~exist('dryRun', 'var')
     dryRun = false;
 end
-if ~exist('directory', 'var')
-    directory = 'V1Data/NatRev';
+if ~exist('stimuliType', 'var')
+    stimuliType = 'NatRev';
 end
-addpath(genpath([directory, '/../functions']));
+if ~exist('directory', 'var')
+    directory = 'V2Data';
+end
+fprintf('directory=%s, stimuliType=%s, dryRun=%b\n', directory, stimuliType, dryRun);
+addpath(genpath([directory, '/functions']));
 scriptDir = fileparts(mfilename('fullpath'));
 addpath(genpath([scriptDir, '/lib']));
-files = glob([directory, '/*/*summary_file.mat']);
+files = glob([directory, '/V2Data*/', stimuliType, '/*/*summary_file.mat']);
+fprintf('Found %d summary files\n', numel(files));
+cells = cell(0);
+cellNumResponses = NaN(0);
 for i = 1:length(files)
     file = files{i};
     [subDir, ~, ~] = fileparts(file);
@@ -16,31 +23,28 @@ for i = 1:length(files)
     summaries = summaries.celldata;
     for summary = summaries'
         %% read and align stimuli and responses
-        stimuliFile = [subDir, '/', summary.stimfile];
-        try
-            stimuli = loadimfile(stimuliFile);
-        catch ME
-            fprintf('ERROR: could not load stimuli file %s\n', stimuliFile);
-            continue
-        end
-        stimuli = uint8(stimuli);
+%         stimuliFile = [subDir, '/', summary.stimfile];
+%         try
+%             stimuli = loadimfile(stimuliFile);
+%         catch ME
+%             fprintf('ERROR: could not load stimuli file %s\n', stimuliFile);
+%             continue
+%         end
+%         stimuli = uint8(stimuli);
         responseFile = [subDir, '/', summary.respfile];
         response = respload(responseFile);
-        response = response(:, 1);
-        if length(response) > size(stimuli, 3)
-            fprintf('Shortening length %d response to %d\n', ...
-                length(response), size(stimuli, 3));
-            response = response(1:size(stimuli, 3));
-        elseif length(response) < size(stimuli, 3)
-            fprintf('Shortening length %d stimuli to %d\n', ...
-                size(stimuli, 3), length(response));
-            stimuli = stimuli(:, :, 1:length(response));
-        end
-        assert(length(response) == size(stimuli, 3));
-        keptFixation = ~ismember(response, -1);
-        stimuli = stimuli(:, :, keptFixation);
-        response = response(keptFixation);
-        assert(~ismember(-1, response));
+        response = nanmean(response, 2);
+        % TODO: 600 natural images are cross-validation images
+%         assert(length(response) == size(stimuli, 3));
+        nonnan = ~isnan(response);
+        fprintf('cell %s: keptFixation for %d/%d responses (%.2f%%)\n', ...
+            summary.cellid, sum(nonnan), numel(response), sum(nonnan) / numel(response) * 100);
+        cells{end + 1} = summary.cellid;
+        cellNumResponses(end + 1) = sum(nonnan);
+%         stimuli = stimuli(:, :, nonnan);
+        response = response(nonnan);
+        assert(~any(response < 0));
+        continue;
 
         %% write stimuli, create data table
         stimuliPaths = writeStimuli(stimuli, stimuliFile, dryRun);
@@ -65,6 +69,10 @@ for i = 1:length(files)
         fprintf('Wrote to %s\n', csvPath);
     end
 end
+cells = cells';
+cellNumResponses = cellNumResponses';
+data = table(cells, cellNumResponses);
+writetable(data, [scriptDir, '/stats.csv']);
 end
 
 function stimuliPaths = writeStimuli(stimuli, stimuliFile, dryRun)
