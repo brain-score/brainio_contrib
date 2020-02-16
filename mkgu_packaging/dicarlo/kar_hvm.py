@@ -28,7 +28,11 @@ def load_responses(response_file, stimuli_ids):
         neuroid_id_offset += spike_rates.shape[1]
     assembly = xr.concat(assemblies, 'neuroid')
     assembly = assembly.stack(presentation=['image_id', 'repetition'])
+    assembly = assembly.expand_dims('time_bin')
+    assembly['time_bin_start'] = 'time_bin', [70]
+    assembly['time_bin_end'] = 'time_bin', [170]
     assembly = NeuronRecordingAssembly(assembly)
+    assembly = assembly.transpose('presentation', 'neuroid', 'time_bin')
     assert len(assembly['presentation']) == 640 * 63
     assert len(np.unique(assembly['image_id'])) == 640
     assert len(assembly.sel(monkey='nano')['neuroid']) == len(assembly.sel(monkey='magneto')['neuroid']) == 288
