@@ -5,6 +5,7 @@ from pathlib import Path
 
 from brainio_base.assemblies import NeuronRecordingAssembly
 from brainio_contrib.packaging import package_data_assembly
+from mkgu_packaging.dicarlo.kar2018 import filter_neuroids
 
 
 def load_responses(response_file, stimuli_ids):
@@ -37,12 +38,13 @@ def load_responses(response_file, stimuli_ids):
     assert len(np.unique(assembly['image_id'])) == 640
     assert len(assembly.sel(monkey='nano')['neuroid']) == len(assembly.sel(monkey='magneto')['neuroid']) == 288
     assert len(assembly['neuroid']) == len(np.unique(assembly['neuroid_id'])) == 288 * 2
-
+    # filter noisy electrodes
+    assembly = filter_neuroids(assembly, threshold=.7)
     return assembly
 
 
 def main():
-    data_dir = Path(__file__).parent / 'ko_hvm'
+    data_dir = Path(__file__).parent / 'hvm'
     stimuli_ids = h5py.File(data_dir / 'hvm640_ids.mat', 'r')
     stimuli_ids = [''.join(chr(c) for c in stimuli_ids[stimuli_ids['hvm640_ids'].value[0, i]])
                    for i in range(stimuli_ids['hvm640_ids'].value[0].size)]
