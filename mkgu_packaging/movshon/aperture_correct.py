@@ -2,9 +2,6 @@
 Method to correct images in the movshon stimulus set by adding a cosine aperture
 """
 
-from brainio_collection import get_stimulus_set
-from brainio_base.stimuli import StimulusSet
-
 import argparse
 import os
 import numpy as np
@@ -13,37 +10,8 @@ from tqdm import tqdm
 import copy
 from pathlib import Path
 
-
-# main function should be run two times, one for each stimulus set access='public' and access='target'
-# saves converted image in a new folder given by the target_dir
-# returns the converted StimulusSet with the new image_paths and new stimuli_id (with -aperture added in the end)
-def main(access='public', target_dir='movshon_stimuli_aperture'):
-    stimuli_identifier = 'movshon.FreemanZiemba2013-' + access
-    target_dir = target_dir
-
-    stimulus_set = get_stimulus_set(stimuli_identifier)
-    old_dir = stimulus_set.get_image(stimulus_set['image_id'][0]).split(os.sep)[-2]
-    root_dir = stimulus_set.get_image(stimulus_set['image_id'][0]).split(os.sep+old_dir+os.sep)[0]
-    target_dir = root_dir + os.sep + target_dir
-
-    Path(target_dir).mkdir(parents=True, exist_ok=True)
-
-    # Change here for stimuli id of the converted StimulusSet
-    converted_stimuli_id = f"{stimuli_identifier}-aperture"
-
-    image_converter = ApplyCosineAperture(target_dir=target_dir)
-
-    converted_image_paths = {}
-    for image_id in tqdm(stimulus_set['image_id'], total=len(stimulus_set), desc='apply cosine aperture'):
-        converted_image_path = image_converter.convert_image(image_path=stimulus_set.get_image(image_id))
-        converted_image_paths[image_id] = converted_image_path
-
-    converted_stimuli = StimulusSet(stimulus_set.copy(deep=True))
-    converted_stimuli.image_paths = converted_image_paths
-    converted_stimuli.name = converted_stimuli_id
-    converted_stimuli.original_paths = copy.deepcopy(stimulus_set.image_paths)
-
-    return converted_stimuli
+from brainio_collection import get_stimulus_set
+from brainio_base.stimuli import StimulusSet
 
 
 class ApplyCosineAperture:
@@ -95,6 +63,38 @@ class ApplyCosineAperture:
         imageio.imwrite(target_path, np.uint8(im_masked))
 
         return target_path
+
+
+# main function should be run two times, one for each stimulus set access='public' and access='target'
+# saves converted image in a new folder given by the target_dir
+# returns the converted StimulusSet with the new image_paths and new stimuli_id (with -aperture added in the end)
+def main(access='public', target_dir='movshon_stimuli_aperture'):
+    stimuli_identifier = 'movshon.FreemanZiemba2013-' + access
+    target_dir = target_dir
+
+    stimulus_set = get_stimulus_set(stimuli_identifier)
+    old_dir = stimulus_set.get_image(stimulus_set['image_id'][0]).split(os.sep)[-2]
+    root_dir = stimulus_set.get_image(stimulus_set['image_id'][0]).split(os.sep+old_dir+os.sep)[0]
+    target_dir = root_dir + os.sep + target_dir
+
+    Path(target_dir).mkdir(parents=True, exist_ok=True)
+
+    # Change here for stimuli id of the converted StimulusSet
+    converted_stimuli_id = f"{stimuli_identifier}-aperture"
+
+    image_converter = ApplyCosineAperture(target_dir=target_dir)
+
+    converted_image_paths = {}
+    for image_id in tqdm(stimulus_set['image_id'], total=len(stimulus_set), desc='apply cosine aperture'):
+        converted_image_path = image_converter.convert_image(image_path=stimulus_set.get_image(image_id))
+        converted_image_paths[image_id] = converted_image_path
+
+    converted_stimuli = StimulusSet(stimulus_set.copy(deep=True))
+    converted_stimuli.image_paths = converted_image_paths
+    converted_stimuli.name = converted_stimuli_id
+    converted_stimuli.original_paths = copy.deepcopy(stimulus_set.image_paths)
+
+    return converted_stimuli
 
 
 if __name__ == '__main__':
