@@ -19,6 +19,7 @@ from brainio_collection.knownfile import KnownFile as kf
 from brainio_contrib.packaging import package_stimulus_set, package_data_assembly
 from brainio_collection import fetch
 
+logging.basicConfig(level=logging.DEBUG, filename=f"{__file__}.log", format='%(asctime)s - %(levelname)s - %(message)s')
 _logger = logging.getLogger(__name__)
 
 
@@ -110,8 +111,8 @@ def strip_for_proto(assembly, stimulus_set):
     image_level = [k for k, v in da.coords.variables.items() if v.dims == ("presentation",) and
                    k in stimulus_set.columns and k != "image_id"]
     stripped = da.reset_coords(image_level, drop=True)
-    for k in stripped.attrs:
-        del stripped[k]
+    for k in list(stripped.attrs):
+        del stripped.attrs[k]
     return stripped
 
 
