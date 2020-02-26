@@ -3,15 +3,23 @@ Method to correct images in the movshon stimulus set by adding a cosine aperture
 """
 
 import argparse
+import logging
 import os
 import numpy as np
 import imageio
 from tqdm import tqdm
 import copy
 from pathlib import Path
+import pandas as pd
+import xarray as xr
 
-from brainio_collection import get_stimulus_set
+from brainio_collection import get_stimulus_set, get_assembly
 from brainio_base.stimuli import StimulusSet
+from brainio_collection.knownfile import KnownFile as kf
+from brainio_contrib.packaging import package_stimulus_set, package_data_assembly
+from brainio_collection import fetch
+
+_logger = logging.getLogger(__name__)
 
 
 class ApplyCosineAperture:
@@ -65,47 +73,86 @@ class ApplyCosineAperture:
         return target_path
 
 
-# main function should be run two times, one for each stimulus set access='public' and access='target'
 # saves converted image in a new folder given by the target_dir
 # returns the converted StimulusSet with the new image_paths and new stimuli_id (with -aperture added in the end)
-def main(access='public', target_dir='movshon_stimuli_aperture'):
-    stimuli_identifier = 'movshon.FreemanZiemba2013-' + access
-    target_dir = target_dir
+def convert_stimuli(stimulus_set_existing, stimulus_set_name_new, image_dir_new):
+    Path(image_dir_new).mkdir(parents=True, exist_ok=True)
 
-    stimulus_set = get_stimulus_set(stimuli_identifier)
-    old_dir = stimulus_set.get_image(stimulus_set['image_id'][0]).split(os.sep)[-2]
-    root_dir = stimulus_set.get_image(stimulus_set['image_id'][0]).split(os.sep+old_dir+os.sep)[0]
-    target_dir = root_dir + os.sep + target_dir
-
-    Path(target_dir).mkdir(parents=True, exist_ok=True)
-
-    # Change here for stimuli id of the converted StimulusSet
-    converted_stimuli_id = f"{stimuli_identifier}-aperture"
-
-    image_converter = ApplyCosineAperture(target_dir=target_dir)
-
+    image_converter = ApplyCosineAperture(target_dir=image_dir_new)
     converted_image_paths = {}
-    for image_id in tqdm(stimulus_set['image_id'], total=len(stimulus_set), desc='apply cosine aperture'):
-        converted_image_path = image_converter.convert_image(image_path=stimulus_set.get_image(image_id))
-        converted_image_paths[image_id] = converted_image_path
+    converted_image_ids = {}
+    for image_id in tqdm(stimulus_set_existing['image_id'], total=len(stimulus_set_existing), desc='apply cosine aperture'):
+        converted_image_path = image_converter.convert_image(image_path=stimulus_set_existing.get_image(image_id))
+        converted_image_id = kf(converted_image_path).sha1
+        converted_image_ids[image_id] = converted_image_id
+        converted_image_paths[converted_image_id] = converted_image_path
+        _logger.debug(f"{image_id} -> {converted_image_id}:  {converted_image_path}")
 
-    converted_stimuli = StimulusSet(stimulus_set.copy(deep=True))
+    converted_stimuli = StimulusSet(stimulus_set_existing.copy(deep=True))
+    converted_stimuli["image_id_without_aperture"] = converted_stimuli["image_id"]
+    converted_stimuli["image_id"] = converted_stimuli["image_id"].map(converted_image_ids)
+    converted_stimuli["image_file_sha1"] = converted_stimuli["image_id"]
+
     converted_stimuli.image_paths = converted_image_paths
-    converted_stimuli.name = converted_stimuli_id
-    converted_stimuli.original_paths = copy.deepcopy(stimulus_set.image_paths)
+    converted_stimuli.name = stimulus_set_name_new
+    converted_stimuli.id_mapping = converted_image_ids
 
     return converted_stimuli
 
 
-if __name__ == '__main__':
-  parser = argparse.ArgumentParser(description='Convert Movshon stimuli')
-  parser.add_argument('--access', dest='access', type=str,
-                      help='access',
-                      default='public')
-  parser.add_argument('--target_dir', dest='target_dir', type=str,
-                      help='Target directory',
-                      default='movshon_stimuli_aperture')
-  args = parser.parse_args()
+def update_assembly(assembly, mapping):
+    assembly["image_id"] = ("presentation", pd.Series(assembly["image_id"]).map(mapping))
+    return assembly
 
-  main(access=args.access, target_dir=args.target_dir)
+
+def strip_for_proto(assembly, stimulus_set):
+    da = xr.DataArray(assembly).reset_index(assembly.indexes.keys())
+    image_level = [k for k, v in da.coords.variables.items() if v.dims == ("presentation",) and
+                   k in stimulus_set.columns and k != "image_id"]
+    stripped = da.reset_coords(image_level, drop=True)
+    for k in stripped.attrs:
+        del stripped[k]
+    return stripped
+
+
+def convert_assembly(data_assembly_existing, data_assembly_name_new, stimulus_set_new, mapping):
+    stripped = strip_for_proto(data_assembly_existing, stimulus_set_new)
+    updated = update_assembly(stripped, mapping)
+    updated.name = data_assembly_name_new
+    return updated
+
+
+# main function should be run two times, one for each stimulus set access='public' and access='target'
+def main(access):
+    local_data_path = fetch._local_data_path
+    name_root = 'movshon.FreemanZiemba2013'
+    stimulus_set_name_existing = name_root + "-" + access if access != "both" else name_root
+    stimulus_set_name_new = name_root + ".aperture-" + access if access != "both" else name_root + ".aperture"
+    data_assembly_name_existing = name_root + "." + access if access != "both" else name_root
+    data_assembly_name_new = name_root + ".aperture." + access if access != "both" else name_root + ".aperture"
+    temp_dir = os.path.join(local_data_path, "temp_" + data_assembly_name_new.replace(".", "_"))
+
+    stimulus_set_existing = get_stimulus_set(stimulus_set_name_existing)
+    stimulus_set_new = convert_stimuli(stimulus_set_existing, stimulus_set_name_new, temp_dir)
+    mapping = stimulus_set_new.id_mapping
+    _logger.debug(f"Packaging stimuli: {stimulus_set_new.name}")
+    package_stimulus_set(stimulus_set_new, stimulus_set_name=stimulus_set_new.name,
+                         bucket_name="brainio-contrib")
+
+    data_assembly_existing = get_assembly(data_assembly_name_existing)
+    proto_data_assembly_new = convert_assembly(data_assembly_existing, data_assembly_name_new, stimulus_set_new, mapping)
+    _logger.debug(f"Packaging assembly: {data_assembly_name_new}")
+    package_data_assembly(proto_data_assembly_new, data_assembly_name_new, stimulus_set_name_new,
+                          bucket_name="brainio-contrib")
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Convert Movshon stimuli')
+    parser.add_argument('--access', dest='access', type=str,
+                      help='access', choices=["both", "public", "private"],
+                      default='both')
+
+    args = parser.parse_args()
+
+    main(access=args.access)
 
