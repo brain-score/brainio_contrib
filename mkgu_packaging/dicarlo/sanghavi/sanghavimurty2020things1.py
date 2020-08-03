@@ -102,14 +102,14 @@ def main():
     assert os.path.isdir(data_dir)
 
     stimuli = collect_stimuli(data_dir)
-    stimuli.name = 'dicarlo.THINGS1'
+    stimuli.identifier = 'dicarlo.THINGS1'
     assembly = load_responses(data_dir, stimuli)
     assembly.name = 'dicarlo.SanghaviMurty2020THINGS1'
 
     print('Packaging stimuli')
-    package_stimulus_set(stimuli, stimulus_set_identifier=stimuli.name, bucket_name='brainio-dicarlo')
+    package_stimulus_set(stimuli, stimulus_set_identifier=stimuli.identifier, bucket_name='brainio-dicarlo')
     print('Packaging assembly')
-    package_data_assembly(assembly, assembly_identifier=assembly.name, stimulus_set_identifier=stimuli.name,
+    package_data_assembly(assembly, assembly_identifier=assembly.name, stimulus_set_identifier=stimuli.identifier,
                           bucket_name='brainio-dicarlo')
     return
 
