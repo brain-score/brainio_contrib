@@ -46,7 +46,7 @@ def load_responses(data_dir, stimuli):
     rate = np.empty((len(timebins), psth.shape[0], psth.shape[1], psth.shape[3]))
     for idx, tb in enumerate(timebins):
         t_cols = np.where((timebase >= (tb[0] + photodiode_delay)) & (timebase < (tb[1] + photodiode_delay)))[0]
-        rate[idx] = np.mean(psth[:, :, t_cols, :], axis=2)  # Shaped images x repetitions x channels
+        rate[idx] = np.mean(psth[:, :, t_cols, :], axis=2)  # Shaped images x repetitions x time bins x channels
 
     assembly = xr.DataArray(rate,
                             coords={'repetition': ('repetition', list(range(rate.shape[2]))),
