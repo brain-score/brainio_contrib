@@ -7,8 +7,8 @@ import xarray as xr
 import pandas as pd
 
 import brainio_collection
-from brainio_base.assemblies import NeuroidAssembly
-from brainio_contrib.packaging import package_data_assembly
+from brainio_base.assemblies import NeuronRecordingAssembly
+from brainio_collection.packaging import package_data_assembly
 from mkgu_packaging.dicarlo.sanghavi import filter_neuroids
 
 
@@ -19,11 +19,15 @@ def load_responses(data_dir, stimuli):
     # Actually not, since we're sticking to older protocol re: data cleaning for now
     # psth = np.delete(psth, (0, 25), axis=1)
 
-    # Select responses from 70-170ms (accounting for ~30ms delay recorded from photodiode signal) and take average
+    # Compute firing rate for given time bins
+    timebins = [[70, 170], [170, 270], [50, 100], [100, 150], [150, 200], [200, 250], [70, 270]]
+    photodiode_delay = 30  # Delay recorded on photodiode is ~30ms
     timebase = np.arange(-100, 381, 10)  # PSTH from -100ms to 380ms relative to stimulus onset
     assert len(timebase) == psth.shape[2]
-    t_cols = np.where((timebase >= 100) & (timebase < 200))[0]  # Delay recorded on photodiode is ~30ms, so adding that
-    rate = np.mean(psth[:, :, t_cols, :], axis=2)  # Shaped images x repetitions x channels
+    rate = np.empty((len(timebins), psth.shape[0], psth.shape[1], psth.shape[3]))
+    for idx, tb in enumerate(timebins):
+        t_cols = np.where((timebase >= (tb[0] + photodiode_delay)) & (timebase < (tb[1] + photodiode_delay)))[0]
+        rate[idx] = np.mean(psth[:, :, t_cols, :], axis=2)  # Shaped time bins x images x repetitions x channels
 
     # Load image related meta data (id ordering differs from dicarlo.hvm)
     image_id = [x.split()[0][:-4] for x in open(data_dir.parent / 'image-metadata' / 'hvm_map.txt').readlines()]
@@ -31,9 +35,12 @@ def load_responses(data_dir, stimuli):
     neuroid_meta = pd.DataFrame(json.load(open(data_dir.parent / 'array-metadata' / 'mapping.json')))
 
     assembly = xr.DataArray(rate,
-                            coords={'repetition': ('repetition', list(range(rate.shape[1]))),
+                            coords={'repetition': ('repetition', list(range(rate.shape[2]))),
+                                    'time_bin_id': ('time_bin', list(range(rate.shape[0]))),
+                                    'time_bin_start': ('time_bin', [x[0] for x in timebins]),
+                                    'time_bin_stop': ('time_bin', [x[1] for x in timebins]),
                                     'image_id': ('image', image_id)},
-                            dims=['image', 'repetition', 'neuroid'])
+                            dims=['time_bin', 'image', 'repetition', 'neuroid'])
 
     for column_name, column_data in neuroid_meta.iteritems():
         assembly = assembly.assign_coords(**{f'{column_name}': ('neuroid', list(column_data.values))})
@@ -46,31 +53,32 @@ def load_responses(data_dir, stimuli):
 
     # Collapse dimensions 'image' and 'repetitions' into a single 'presentation' dimension
     assembly = assembly.stack(presentation=('image', 'repetition')).reset_index('presentation')
-    assembly = NeuroidAssembly(assembly)
+    assembly = NeuronRecordingAssembly(assembly)
 
     # Filter noisy electrodes
-    assembly = filter_neuroids(assembly, 0.7)
+    psth = np.load(data_dir / 'solo.rsvp.hvm.normalizer_psth.npy')
+    t_cols = np.where((timebase >= (70 + photodiode_delay)) & (timebase < (170 + photodiode_delay)))[0]
+    rate = np.mean(psth[:, :, t_cols, :], axis=2)
+    normalizer_assembly = xr.DataArray(rate,
+                                       coords={'repetition': ('repetition', list(range(rate.shape[1]))),
+                                               'image_id': ('image', list(range(rate.shape[0]))),
+                                               'id': ('image', list(range(rate.shape[0])))},
+                                       dims=['image', 'repetition', 'neuroid'])
+    for column_name, column_data in neuroid_meta.iteritems():
+        normalizer_assembly = normalizer_assembly.assign_coords(
+            **{f'{column_name}': ('neuroid', list(column_data.values))})
+    normalizer_assembly = normalizer_assembly.stack(presentation=('image', 'repetition')).reset_index('presentation')
+    normalizer_assembly = normalizer_assembly.drop('image')
+    normalizer_assembly = normalizer_assembly.transpose('presentation', 'neuroid')
+    normalizer_assembly = NeuronRecordingAssembly(normalizer_assembly)
 
-    # Add time info
-    assembly = assembly.expand_dims('time_bin')
-    assembly['time_bin_start'] = 'time_bin', [70]
-    assembly['time_bin_end'] = 'time_bin', [170]
+    filtered_assembly = filter_neuroids(normalizer_assembly, 0.7)
+    assembly = assembly.sel(neuroid=np.isin(assembly.neuroid_id, filtered_assembly.neuroid_id))
     assembly = assembly.transpose('presentation', 'neuroid', 'time_bin')
 
-    # Add other experiment and data processing related info
-    assembly.attrs['experiment_paradigm'] = 'rsvp'
-    assembly.attrs['sampling_rate_hz'] = 20000
+    # Add other experiment related info
     assembly.attrs['image_size_degree'] = 8
     assembly.attrs['stim_on_time_ms'] = 100
-    assembly.attrs['stim_off_time_ms'] = 100
-    assembly.attrs['stim_on_delay_ms'] = 0
-    assembly.attrs['inter_trial_interval_ms'] = 500
-    assembly.attrs['fixation_point_size_degree'] = 0.2
-    assembly.attrs['fixation_window_size_degree'] = 2
-    assembly.attrs['threshold_sd'] = 3
-    assembly.attrs['chunks_for_threshold'] = 10
-    assembly.attrs['passband_hz'] = [300, 6000]
-    assembly.attrs['ellip_order'] = 2
 
     return assembly
 
@@ -82,11 +90,10 @@ def main():
     stimuli = brainio_collection.get_stimulus_set('dicarlo.hvm')
     assembly = load_responses(data_dir, stimuli)
     assembly.name = 'dicarlo.Sanghavi2020'
-    print(assembly)
 
     print('Packaging assembly')
-    package_data_assembly(assembly, data_assembly_name=assembly.name, stimulus_set_name=stimuli.name,
-                          bucket_name="brainio-dicarlo")
+    package_data_assembly(assembly, assembly_identifier=assembly.name, stimulus_set_identifier=stimuli.identifier,
+                          bucket_name='brainio-dicarlo')
     return
 
 
