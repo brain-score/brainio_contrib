@@ -133,13 +133,8 @@ def main():
 
     stimuli = collect_stimuli(data_dir)
     stimuli.name = 'dicarlo.BOLD5000'
-    print(stimuli)
     assembly = load_responses(data_dir, stimuli)
     assembly.name = 'dicarlo.SanghaviJozwik2020'
-    print(assembly)
-    print(assembly.sel(subregion='cIT').data.shape)
-    print(assembly.sel(subregion='pIT').data.shape)
-    print(assembly.sel(subregion='V4').data.shape)
 
     print('Packaging stimuli')
     package_stimulus_set(stimuli, stimulus_set_identifier=stimuli.name, bucket_name='brainio-dicarlo')
