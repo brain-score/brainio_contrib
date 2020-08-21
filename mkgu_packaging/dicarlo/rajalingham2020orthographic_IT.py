@@ -5,35 +5,27 @@ import pickle
 import numpy as np
 import xarray as xr
 
-from brainio_collection.knownfile import KnownFile as kf
 from brainio_base.stimuli import StimulusSet
 from brainio_base.assemblies import NeuronRecordingAssembly
-from brainio_contrib.packaging import package_stimulus_set, package_data_assembly
+from brainio_collection.packaging import package_stimulus_set, package_data_assembly
 
 
 def collect_stimuli(data_dir):
     IT_base616 = pickle.load(open(os.path.join(data_dir, 'data_IT_base616.pkl'), 'rb'))
     stimuli = IT_base616['meta']
 
-    # Add columns
-    stimuli['image_id'] = ''
+    stimuli = stimuli.rename(columns={'id': 'image_id'})
+
     stimuli['image_file_name'] = ''
     stimuli['image_current_local_file_path'] = ''
-    stimuli['image_path_within_store'] = ''
-    stimuli['image_file_sha1'] = ''
 
     for idx, row in stimuli.iterrows():
-        image_file_name = f'{row.id}.png'
+        image_file_name = f'{row.image_id}.png'
         image_file_path = os.path.join(data_dir, 'stimuli', image_file_name)
-        im_kf = kf(image_file_path)
 
-        stimuli.at[idx, 'image_id'] = im_kf.sha1
         stimuli.at[idx, 'image_file_name'] = image_file_name
         stimuli.at[idx, 'image_current_local_file_path'] = image_file_path
-        stimuli.at[idx, 'image_path_within_store'] = image_file_name
-        stimuli.at[idx, 'image_file_sha1'] = im_kf.sha1
 
-    stimuli = stimuli.drop(columns='id')  # Drop ID column since the information is retained in other columns
     stimuli['grp5_bigram_freq'] = stimuli['grp5_bigram_freq'].astype(str)  # IntervalIndex not supported by netCDF4
     stimuli = stimuli.astype({column_name: 'int32' for column_name
                               in stimuli.select_dtypes(include=['bool']).keys()})  # Bool not supported by netCDF4
@@ -66,8 +58,7 @@ def load_responses(data_dir, stimuli):
                                     'time_bin_start': ('time_bin', ['70']),
                                     'time_bin_stop': ('time_bin', ['170']),
                                     'repetition': ('repetition', list(range(features.shape[2])))},
-                            dims=['image', 'neuroid', 'repetition', 'time_bin']
-                            )
+                            dims=['image', 'neuroid', 'repetition', 'time_bin'])
 
     for column_name, column_data in neuroid_meta.iteritems():
         assembly = assembly.assign_coords(**{f'{column_name}': ('neuroid', list(column_data.values))})
@@ -77,6 +68,7 @@ def load_responses(data_dir, stimuli):
 
     # Collapse dimensions 'image' and 'repetitions' into a single 'presentation' dimension
     assembly = assembly.stack(presentation=('image', 'repetition')).reset_index('presentation')
+    assembly = assembly.drop('image')
 
     assembly = NeuronRecordingAssembly(assembly)
     assembly = assembly.transpose('presentation', 'neuroid', 'time_bin')
@@ -85,18 +77,18 @@ def load_responses(data_dir, stimuli):
 
 
 def main():
-    data_dir = Path(__file__).parents[3] / 'Rajalingham2020'
+    data_dir = Path(__file__).parents[5] / 'data2' / 'active' / 'users' / 'sachis' / 'database' / 'Rajalingham2020'
     assert os.path.isdir(data_dir)
     stimuli = collect_stimuli(data_dir)
-    stimuli.name = 'dicarlo.Rajalingham2020orthographic_IT'
+    stimuli.identifier = 'dicarlo.Rajalingham2020'
     assembly = load_responses(data_dir, stimuli)
-    assembly.name = 'dicarlo.Rajalingham2020orthographic_IT'
+    assembly.name = 'dicarlo.Rajalingham2020'
 
     print('Packaging stimuli')
-    package_stimulus_set(stimuli, stimulus_set_name=stimuli.name, bucket_name="brainio-dicarlo")
+    package_stimulus_set(stimuli, stimulus_set_identifier=stimuli.identifier, bucket_name='brainio.dicarlo')
     print('Packaging assembly')
-    package_data_assembly(assembly, data_assembly_name=assembly.name, stimulus_set_name=stimuli.name,
-                          bucket_name="brainio-dicarlo")
+    package_data_assembly(assembly, assembly_identifier=assembly.name, stimulus_set_identifier=stimuli.identifier,
+                          bucket_name='brainio.dicarlo')
 
     return
 
