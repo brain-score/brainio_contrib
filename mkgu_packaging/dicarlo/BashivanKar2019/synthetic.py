@@ -41,7 +41,7 @@ def np_to_xr(monkey, setting, session_neural, stimuli, session_target_inds, stag
     dims = ("repetition", "image", "neuroid")
     neuroid_id = [f"{monkey._v_name[-1]}_{setting._v_name}_{session_neural._v_name[-1]}_{str(i)}" for i in
                   range(session_neural.shape[2])]
-    is_target = [(i in session_target_inds) for i in range(session_neural.shape[2])]
+    is_target = [int(i in session_target_inds) for i in range(session_neural.shape[2])]
     coords = {
         "repetition_index": ("repetition", range(session_neural.shape[0])),
         "image_id": ("image", stimuli["image_id"]),
