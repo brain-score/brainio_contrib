@@ -55,8 +55,8 @@ def load_responses(data_dir, stimuli):
     assembly = xr.DataArray(features,
                             coords={'region': ('neuroid', ['IT'] * len(neuroid_meta)),
                                     'neuroid_id': ('neuroid', list(range(features.shape[1]))),
-                                    'time_bin_start': ('time_bin', ['70']),
-                                    'time_bin_stop': ('time_bin', ['170']),
+                                    'time_bin_start': ('time_bin', [70]),
+                                    'time_bin_stop': ('time_bin', [170]),
                                     'repetition': ('repetition', list(range(features.shape[2])))},
                             dims=['image', 'neuroid', 'repetition', 'time_bin'])
 
