@@ -77,7 +77,12 @@ def load_responses(metric_bins_path, csv_path):
     stacked_per_var = {}
     for v in concatted_per_var:
         stacked_per_var[v] = concatted_per_var[v].stack(presentation=["repetition", "stimulus"])
-    final = xr.concat(stacked_per_var.values(), dim="presentation").transpose()
+    final = xr.concat(stacked_per_var.values(), dim="presentation")#.transpose()
+    final = final.expand_dims('time_bin', 2)
+    final['time_bin_start'] = ('time_bin', [70])
+    final['time_bin_end'] = ('time_bin', [170])
+    print(final.dims)
+    assert final.dims == ("neuroid", "presentation", "time_bin")
     return final
 
 
