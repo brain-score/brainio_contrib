@@ -133,20 +133,28 @@ def main():
     _logger.debug('Packaging naturalistic stimuli')
     package_stimulus_set(stimuli_nat, stimulus_set_identifier=stimuli_nat.identifier, bucket_name='brainio.dicarlo')
 
-    _logger.debug('Packaging naturalistic assemblies')
-    for identifier in responses_nat_d:
-        assy = responses_nat_d[identifier]
-        package_data_assembly(assy, assembly_identifier=identifier, stimulus_set_identifier=stimuli_nat.identifier,
-                          bucket_name='brainio.dicarlo')
+    _logger.debug('Packaging naturalistic assembly')
+    responses_nat_concat = xr.concat(responses_nat_d.values(), dim="neuroid")
+    assert responses_nat_concat.shape == (24320, 233, 1)
+    package_data_assembly(
+        responses_nat_concat,
+        assembly_identifier="dicarlo.BashivanKar2019.naturalistic",
+        stimulus_set_identifier=stimuli_nat.identifier,
+        bucket_name='brainio.dicarlo'
+    )
 
     _logger.debug('Packaging synthetic stimuli')
     package_stimulus_set(stimuli_synth, stimulus_set_identifier=stimuli_synth.identifier, bucket_name='brainio.dicarlo')
 
-    _logger.debug('Packaging synthetic assemblies')
-    for identifier in responses_synth_d:
-        assy = responses_synth_d[identifier]
-        package_data_assembly(assy, assembly_identifier=identifier, stimulus_set_identifier=stimuli_synth.identifier,
-                          bucket_name='brainio.dicarlo')
+    _logger.debug('Packaging synthetic assembly')
+    responses_synth_concat = xr.concat(responses_synth_d.values(), dim="presentation")
+    assert responses_synth_concat.shape ==(21360, 233, 1)
+    package_data_assembly(
+        responses_synth_concat,
+        assembly_identifier="dicarlo.BashivanKar2019.synthetic",
+        stimulus_set_identifier=stimuli_synth.identifier,
+        bucket_name='brainio.dicarlo'
+    )
 
 
 if __name__ == '__main__':
