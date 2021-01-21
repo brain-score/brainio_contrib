@@ -83,6 +83,7 @@ def collect_responses_nat(h5, stimuli):
             for session in setting:
                 target_inds_session = h5.root.target_inds[monkey._v_name][setting._v_name][session._v_name]
                 proto = np_to_xr(monkey, setting, session, stimuli, target_inds_session, "nat")
+                proto = NeuronRecordingAssembly(proto)
                 responses_nat_d[proto.name] = proto
     return responses_nat_d
 
