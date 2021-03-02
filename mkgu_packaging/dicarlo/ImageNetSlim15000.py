@@ -17,13 +17,13 @@ def collect_stimuli(data_path):
 def main():
     stimulus_path = os.path.normpath('/Users/chongguo/Dropbox (MIT)/CG@DiCarlo/Datasets/ImageNetSlim15000')
     stimulus_set = collect_stimuli(stimulus_path)
-    stimulus_set.identifier = 'dicarlo.ImageNetSlim15000'
+    stimulus_set.identifier = 'requested.ImageNetSlim15000'
     package(stimulus_set)
 
 
 def package(stimulus_set):
     print("Packaging stimuli")
-    package_stimulus_set(stimulus_set, stimulus_set_identifier=stimulus_set.identifier, bucket_name = 'brainio.dicarlo')
+    package_stimulus_set(stimulus_set, stimulus_set_identifier=stimulus_set.identifier, bucket_name = 'brainio.requested')
 
 
 if __name__ == '__main__':
