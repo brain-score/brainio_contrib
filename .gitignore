@@ -1,0 +1,7 @@
+# Data files
+mkgu_packaging/klab/search_datasets*
+
+brainio_contrib.egg-info*
+build*
+dist*
+.ipynb_checkpoints*
